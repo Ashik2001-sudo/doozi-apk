@@ -1,22 +1,19 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import {
   Hash,
   Package,
-  RotateCcw,
   Truck,
   User,
   Calendar,
 } from 'lucide-react-native';
-import { colors, radius, shadows } from '@/theme/tokens';
+import { colors, radius, spacing } from '@/theme/tokens';
 import { parseSerialField, statusTone } from '../utils/formatters';
 import type { QuickSellOrder } from '../types';
 
 type Props = {
   order: QuickSellOrder;
   formatTaka: (n: number) => string;
-  busy?: boolean;
-  onReturn: () => void;
 };
 
 function formatDate(iso?: string) {
@@ -37,25 +34,23 @@ function formatDate(iso?: string) {
 export function QuickSellOrderCard({
   order,
   formatTaka,
-  busy,
-  onReturn,
 }: Props) {
   const tone = statusTone(order.status);
   const serials = parseSerialField(order.serialNumbers);
   const accent =
     order.status === 'pending'
-      ? '#f59e0b'
+      ? colors.statusWarning
       : order.status === 'assigned'
-        ? '#10b981'
+        ? colors.statusSuccess
         : order.status === 'returned'
-          ? '#ef4444'
+          ? '#2563eb'
           : '#94a3b8';
 
   return (
-    <View style={[styles.card, shadows.soft, { borderLeftColor: accent }]}>
+    <View style={[styles.card, { borderLeftColor: accent }]}>
       <View style={styles.top}>
-        <View style={[styles.iconWrap, { backgroundColor: `${accent}18` }]}>
-          <Package color={accent} size={18} />
+        <View style={styles.iconWrap}>
+          <Package color={colors.accentPrimary} size={20} />
         </View>
         <View style={styles.topBody}>
           <Text style={styles.product} numberOfLines={1}>
@@ -73,7 +68,7 @@ export function QuickSellOrderCard({
             <Text style={styles.meta}>{order.orderNo || order.invoiceNo}</Text>
           </View>
         </View>
-        <View style={[styles.badge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+        <View style={[styles.badge, { borderColor: `${accent}55` }]}>
           <Text style={[styles.badgeText, { color: tone.text }]}>{tone.label}</Text>
         </View>
       </View>
@@ -89,7 +84,7 @@ export function QuickSellOrderCard({
 
       {serials.length > 0 ? (
         <View style={styles.serialRow}>
-          <Hash color="#0f766e" size={12} />
+          <Hash color={colors.accentPrimary} size={12} />
           <Text style={styles.serialText} numberOfLines={1}>
             {serials.slice(0, 2).join(', ')}
             {serials.length > 2 ? ` +${serials.length - 2}` : ''}
@@ -118,36 +113,31 @@ export function QuickSellOrderCard({
         </View>
       ) : null}
 
-      {order.status === 'pending' && (
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.btnReturn} onPress={onReturn} disabled={busy}>
-            <RotateCcw color="#dc2626" size={14} />
-            <Text style={styles.btnReturnText}>Return Sale</Text>
-          </TouchableOpacity>
-          {busy ? <ActivityIndicator color="#0f766e" size="small" /> : null}
-        </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
     borderLeftWidth: 4,
-    padding: 10,
-    marginBottom: 8,
+    padding: 13,
+    marginHorizontal: spacing.sm,
+    marginBottom: 10,
   },
-  top: { flexDirection: 'row', gap: 8, marginBottom: 7 },
+  top: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
   },
   topBody: { flex: 1, minWidth: 0 },
   product: { color: colors.textPrimary, fontWeight: '800', fontSize: 15, letterSpacing: -0.2 },
@@ -156,40 +146,39 @@ const styles = StyleSheet.create({
   meta: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
   dot: { color: colors.textMuted, fontSize: 11 },
   badge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
     borderWidth: 1,
+    backgroundColor: '#f8fafc',
     alignSelf: 'flex-start',
   },
-  badgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  badgeText: { fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
   saleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
+    backgroundColor: colors.bgTertiary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     marginBottom: 6,
   },
   saleDetails: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   saleDetailText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   saleDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textMuted },
-  metricTotal: { color: '#0f766e', fontSize: 16, fontWeight: '800', marginLeft: 8 },
+  metricTotal: { color: colors.accentPrimary, fontSize: 16, fontWeight: '900', marginLeft: 8 },
   serialRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#f0fdfa',
+    backgroundColor: colors.accentSoft,
     borderRadius: radius.md,
     paddingHorizontal: 8,
     paddingVertical: 5,
     marginBottom: 5,
   },
-  serialText: { flex: 1, color: '#0f766e', fontSize: 12, fontWeight: '600' },
+  serialText: { flex: 1, color: colors.accentPrimary, fontSize: 11, fontWeight: '600', fontFamily: 'monospace' },
   peopleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 2 },
   personChip: {
     flexDirection: 'row',
@@ -205,18 +194,4 @@ const styles = StyleSheet.create({
   },
   supplierChip: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
   personText: { color: colors.textSecondary, fontSize: 11, fontWeight: '600', maxWidth: 180 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  btnReturn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#fef2f2',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  btnReturnText: { color: '#dc2626', fontWeight: '700', fontSize: 12 },
 });

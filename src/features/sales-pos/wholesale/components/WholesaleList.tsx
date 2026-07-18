@@ -12,39 +12,31 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Building2, Package, PackageCheck, Plus, Search, X } from 'lucide-react-native';
 import { colors, shadows } from '@/theme/tokens';
 import { styles } from '../styles';
-import { money, PaymentFilter, StatusFilter, WholesaleItem, WholesaleOrder } from '../types';
+import { money, StatusFilter, WholesaleItem, WholesaleOrder } from '../types';
 import type { UseWholesaleOrders } from '../hooks/useWholesaleOrders';
 import { OrderCard } from './OrderCard';
 
 type Props = {
   orders: UseWholesaleOrders;
   onCreate: () => void;
+  onOpenSale: (saleOrderId: string) => void;
   onSellOut: (order: WholesaleOrder, item: WholesaleItem) => void;
   onReturn: (order: WholesaleOrder, item: WholesaleItem) => void;
-  onOpenSale: (saleOrderId: string) => void;
 };
 
-const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'paid', label: 'Paid' },
-  { key: 'partial', label: 'Partial' },
-  { key: 'due', label: 'Due' },
-];
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All status' },
   { key: 'pending', label: 'Pending' },
   { key: 'completed', label: 'Complete' },
 ];
 
-export function WholesaleList({ orders, onCreate, onSellOut, onReturn, onOpenSale }: Props) {
+export function WholesaleList({ orders, onCreate, onOpenSale, onSellOut, onReturn }: Props) {
   const {
     branchList,
     branchId,
     selectBranch,
     search,
     setSearch,
-    paymentFilter,
-    setPaymentFilter,
     statusFilter,
     setStatusFilter,
     orders: list,
@@ -68,9 +60,9 @@ export function WholesaleList({ orders, onCreate, onSellOut, onReturn, onOpenSal
           order={item}
           expanded={expandedId === item.id}
           onToggle={() => toggleExpand(item.id)}
+          onOpenSale={onOpenSale}
           onSellOut={onSellOut}
           onReturn={onReturn}
-          onOpenSale={onOpenSale}
         />
       )}
       contentContainerStyle={styles.listContent}
@@ -149,8 +141,11 @@ export function WholesaleList({ orders, onCreate, onSellOut, onReturn, onOpenSal
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="Search order, retailer, product, IMEI…"
+              placeholder="Search order no, retailer, product, SKU, IMEI..."
               placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
             />
             {search ? (
               <TouchableOpacity onPress={() => setSearch('')}>
@@ -164,21 +159,6 @@ export function WholesaleList({ orders, onCreate, onSellOut, onReturn, onOpenSal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
-            {PAYMENT_FILTERS.map((f) => {
-              const active = paymentFilter === f.key;
-              return (
-                <TouchableOpacity
-                  key={`pay-${f.key}`}
-                  style={[styles.filterChip, active && styles.filterChipOn]}
-                  onPress={() => setPaymentFilter(f.key)}
-                >
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextOn]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            <View style={{ width: 1, backgroundColor: colors.borderLight, marginHorizontal: 2 }} />
             {STATUS_FILTERS.map((f) => {
               const active = statusFilter === f.key;
               return (

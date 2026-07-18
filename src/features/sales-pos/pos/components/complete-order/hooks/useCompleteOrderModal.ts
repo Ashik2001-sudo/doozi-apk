@@ -307,9 +307,27 @@ export function useCompleteOrderModal(props: CompleteOrderModalProps) {
     (s, r) => s + (typeof r.amount === 'number' ? r.amount : Number(r.amount) || 0),
     0,
   );
-  const displayReceive = (onReplacePayments ? totalFromRows : orderSummary.totalPaid) + advanceApplied;
+  const nonAdvanceReceived = onReplacePayments ? totalFromRows : orderSummary.totalPaid;
+  const maxAdvanceApplicable = Math.max(
+    0,
+    Math.min(
+      customerAdvanceBalance ?? 0,
+      orderSummary.grandTotal - nonAdvanceReceived,
+    ),
+  );
+  const handleAdvanceChange = (value: string | number) => {
+    const parsed = value === '' ? 0 : Math.max(0, Number(value) || 0);
+    setAdvanceApplied(
+      Math.min(Math.round(parsed * 100) / 100, Math.round(maxAdvanceApplicable * 100) / 100),
+    );
+  };
+  const displayReceive = nonAdvanceReceived + advanceApplied;
   const displayChange = Math.max(0, displayReceive - orderSummary.grandTotal);
   const displayDue = Math.max(0, orderSummary.grandTotal - displayReceive);
+
+  useEffect(() => {
+    setAdvanceApplied((current) => Math.min(current, maxAdvanceApplicable));
+  }, [maxAdvanceApplicable]);
 
   const handleConfirm = async () => {
     if (!isAdmin && !responsiblePerson) {
@@ -376,6 +394,8 @@ export function useCompleteOrderModal(props: CompleteOrderModalProps) {
     paymentRows,
     advanceApplied,
     setAdvanceApplied,
+    maxAdvanceApplicable,
+    handleAdvanceChange,
     paymentStatus,
     responsiblePerson,
     setResponsiblePerson,

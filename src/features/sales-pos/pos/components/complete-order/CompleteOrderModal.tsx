@@ -173,23 +173,27 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
                     {formatCurrency(modal.customerAdvanceBalance)}
                   </Text>
                 </View>
-                {modal.displayDue > 0 ? (
+                {modal.maxAdvanceApplicable > 0 || modal.advanceApplied > 0 ? (
                   <View style={styles.advanceActions}>
                     <TouchableOpacity
                       style={styles.advanceBtn}
-                      onPress={() =>
-                        modal.setAdvanceApplied(
-                          Math.min(modal.customerAdvanceBalance!, modal.displayDue),
-                        )
-                      }
+                      onPress={() => modal.handleAdvanceChange(modal.maxAdvanceApplicable)}
                     >
                       <Text style={styles.advanceBtnText}>
-                        Use{' '}
-                        {formatCurrency(
-                          Math.min(modal.customerAdvanceBalance!, modal.displayDue),
-                        )}
+                        Use {formatCurrency(modal.maxAdvanceApplicable)}
                       </Text>
                     </TouchableOpacity>
+                    <View style={styles.advanceInputWrap}>
+                      <Text style={styles.advanceCurrency}>৳</Text>
+                      <TextInput
+                        style={styles.advanceInput}
+                        value={modal.advanceApplied > 0 ? String(modal.advanceApplied) : ''}
+                        onChangeText={modal.handleAdvanceChange}
+                        keyboardType="decimal-pad"
+                        placeholder="Custom amount"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
                     {modal.advanceApplied > 0 ? (
                       <TouchableOpacity onPress={() => modal.setAdvanceApplied(0)}>
                         <Text style={styles.clearAdvance}>Clear</Text>
@@ -648,7 +652,13 @@ const styles = StyleSheet.create({
   advanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   advanceTitle: { flex: 1, color: '#059669', fontWeight: '700', fontSize: 12 },
   advanceAmount: { color: '#059669', fontWeight: '800', fontSize: 15 },
-  advanceActions: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
+  advanceActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
   advanceBtn: {
     backgroundColor: '#d1fae5',
     paddingHorizontal: 12,
@@ -658,6 +668,20 @@ const styles = StyleSheet.create({
     borderColor: '#6ee7b7',
   },
   advanceBtnText: { color: '#059669', fontWeight: '700', fontSize: 12 },
+  advanceInputWrap: {
+    flex: 1,
+    minWidth: 110,
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#6ee7b7',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+  },
+  advanceCurrency: { color: '#059669', fontSize: 13, fontWeight: '800', marginRight: 4 },
+  advanceInput: { flex: 1, color: colors.textPrimary, fontSize: 12, paddingVertical: 0 },
   clearAdvance: { color: colors.textMuted, fontWeight: '600', fontSize: 12 },
   fieldLabel: {
     color: colors.textMuted,

@@ -16,11 +16,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Building2,
+  CreditCard,
+  DollarSign,
   Eye,
   Hash,
   Package,
   Search,
   ShoppingCart,
+  UserRound,
   Undo2,
   X,
 } from 'lucide-react-native';
@@ -28,12 +31,24 @@ import { Button } from '@/components/ui/button';
 import { API_BASE_URL, authorizedFetch } from '@/lib/config';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 
+type SerialSupplier = {
+  id?: string;
+  name: string;
+  companyName?: string | null;
+  phone?: string | null;
+};
+
 type SerialSearchPurchase = {
   id: string;
   billNo: string | null;
   invoiceNo: string | null;
   purchaseDate: string | null;
-  supplier?: { id?: string; name: string; companyName?: string | null; phone?: string | null };
+  grandTotal?: number;
+  paidAmount?: number;
+  dueAmount?: number;
+  paymentStatus?: string | null;
+  branch?: { name: string } | null;
+  supplier?: SerialSupplier;
 };
 
 type SerialSearchSaleOrder = {
@@ -77,8 +92,26 @@ type SerialSearchMatch = {
     }>;
   };
   purchase: SerialSearchPurchase | null;
+  purchaseItem?: {
+    unitPrice: number;
+    totalPrice: number;
+    quantity: number;
+    productName?: string;
+  } | null;
+  averageCost?: number | null;
+  catalogPrices?: Array<{
+    sellingPrice: number;
+    sellingType?: string;
+  }>;
   branch?: { id: string; name: string };
-  batch: { id: string; batchNumber: string; batchDate: string } | null;
+  batch: {
+    id: string;
+    batchNumber: string;
+    batchDate: string;
+    supplier?: SerialSupplier | null;
+  } | null;
+  supplier?: SerialSupplier | null;
+  supplierSource?: 'purchase' | 'batch' | null;
   saleOrder: SerialSearchSaleOrder | null;
   saleHistory: SerialSearchSaleOrder[];
   returnHistory: SerialReturnHistory[];
@@ -130,7 +163,9 @@ function statusColor(status: string) {
     damaged: '#e11d48',
     warranty: '#7c3aed',
     completed: '#059669',
+    paid: '#059669',
     partial: '#d97706',
+    due: '#e11d48',
     cancelled: '#e11d48',
   };
   return map[status] || colors.textMuted;
@@ -153,7 +188,11 @@ function normalizeMatch(m: SerialSearchMatch): SerialSearchMatch {
       : m.saleOrder
         ? [m.saleOrder]
         : [];
-  return { ...m, saleHistory };
+  const supplier = m.supplier ?? m.purchase?.supplier ?? m.batch?.supplier ?? null;
+  const supplierSource =
+    m.supplierSource ??
+    (m.purchase?.supplier ? 'purchase' : m.batch?.supplier ? 'batch' : null);
+  return { ...m, saleHistory, supplier, supplierSource };
 }
 
 export default function SerialNumberPage() {
@@ -302,7 +341,7 @@ export default function SerialNumberPage() {
         {match.purchase ? (
           <View style={styles.section}>
             <View style={styles.sectionHead}>
-              <Package color={colors.accentPrimary} size={18} />
+              <CreditCard color={colors.accentPrimary} size={18} />
               <Text style={styles.sectionTitle}>Purchase Info</Text>
               {match.purchase.id ? (
                 <TouchableOpacity
@@ -317,17 +356,125 @@ export default function SerialNumberPage() {
             <InfoRow label="Bill No" value={match.purchase.billNo ?? '—'} />
             <InfoRow label="Invoice No" value={match.purchase.invoiceNo ?? '—'} />
             <InfoRow label="Purchase Date" value={formatDateTime(match.purchase.purchaseDate)} />
-            <InfoRow
-              label="Supplier"
-              value={
-                match.purchase.supplier?.companyName ??
-                match.purchase.supplier?.name ??
-                '—'
-              }
-            />
-            {match.purchase.supplier?.phone ? (
-              <Text style={styles.infoHint}>{match.purchase.supplier.phone}</Text>
+            {match.purchase.branch?.name ? (
+              <InfoRow label="Purchase Branch" value={match.purchase.branch.name} />
             ) : null}
+
+            {match.purchaseItem || match.purchase.grandTotal != null ? (
+              <View style={styles.financialGrid}>
+                {match.purchaseItem ? (
+                  <FinancialTile
+                    label="Unit Cost"
+                    value={money(match.purchaseItem.unitPrice)}
+                    tone="#7c3aed"
+                  />
+                ) : null}
+                {match.purchaseItem ? (
+                  <FinancialTile
+                    label={`Line Total · ${match.purchaseItem.quantity} qty`}
+                    value={money(match.purchaseItem.totalPrice)}
+                    tone="#2563eb"
+                  />
+                ) : null}
+                {match.purchase.paidAmount != null ? (
+                  <FinancialTile
+                    label="Purchase Paid"
+                    value={money(match.purchase.paidAmount)}
+                    tone="#059669"
+                  />
+                ) : null}
+                {match.purchase.dueAmount != null ? (
+                  <FinancialTile
+                    label="Purchase Due"
+                    value={money(match.purchase.dueAmount)}
+                    tone="#e11d48"
+                  />
+                ) : null}
+              </View>
+            ) : null}
+            {match.purchase.paymentStatus ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Payment Status</Text>
+                <View
+                  style={[
+                    styles.statusPill,
+                    {
+                      backgroundColor: `${statusColor(match.purchase.paymentStatus)}14`,
+                      borderColor: `${statusColor(match.purchase.paymentStatus)}40`,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      { color: statusColor(match.purchase.paymentStatus) },
+                    ]}
+                  >
+                    {match.purchase.paymentStatus}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {match.supplier ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <UserRound color={colors.accentPrimary} size={18} />
+              <Text style={styles.sectionTitle}>Supplier Details</Text>
+              {match.supplierSource ? (
+                <Text style={styles.sourcePill}>
+                  via {match.supplierSource === 'purchase' ? 'purchase' : 'batch'}
+                </Text>
+              ) : null}
+            </View>
+            <TouchableOpacity
+              activeOpacity={match.supplier.id ? 0.7 : 1}
+              disabled={!match.supplier.id}
+              style={styles.supplierCard}
+              onPress={() => {
+                const supplierId = match.supplier?.id;
+                if (supplierId) {
+                  router.push(`/admin/contacts/suppliers/${supplierId}` as never);
+                }
+              }}
+            >
+              <View style={styles.supplierIcon}>
+                <UserRound color={colors.accentPrimary} size={18} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supplierName}>
+                  {match.supplier.companyName ?? match.supplier.name}
+                </Text>
+                {match.supplier.companyName ? (
+                  <Text style={styles.infoHint}>{match.supplier.name}</Text>
+                ) : null}
+                {match.supplier.phone ? (
+                  <Text style={styles.supplierPhone}>{match.supplier.phone}</Text>
+                ) : null}
+              </View>
+              {match.supplier.id ? <Text style={styles.supplierAction}>Details ›</Text> : null}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {match.averageCost != null || match.catalogPrices?.length ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <DollarSign color={colors.accentPrimary} size={18} />
+              <Text style={styles.sectionTitle}>Cost & Selling Price</Text>
+            </View>
+            {match.averageCost != null ? (
+              <InfoRow label="Average Cost" value={money(match.averageCost)} />
+            ) : null}
+            {match.catalogPrices?.map((price, priceIndex) => (
+              <InfoRow
+                key={`${match.id}-price-${price.sellingType ?? priceIndex}`}
+                label={`${(price.sellingType ?? 'selling').replace(/_/g, ' ')} Price`}
+                value={money(price.sellingPrice)}
+              />
+            ))}
           </View>
         ) : null}
 
@@ -597,6 +744,23 @@ function InfoRow({
   );
 }
 
+function FinancialTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <View style={[styles.financialTile, { borderLeftColor: tone }]}>
+      <Text style={styles.financialLabel}>{label}</Text>
+      <Text style={[styles.financialValue, { color: tone }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bgPrimary },
   listContent: { paddingBottom: 120 },
@@ -716,6 +880,61 @@ const styles = StyleSheet.create({
   infoValue: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   mono: { fontFamily: 'monospace', fontSize: 13 },
   infoHint: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  sourcePill: {
+    color: colors.accentPrimary,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    overflow: 'hidden',
+  },
+  supplierCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+    padding: 11,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+  },
+  supplierIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+  },
+  supplierName: { color: colors.textPrimary, fontSize: 14, fontWeight: '800' },
+  supplierPhone: { color: colors.accentPrimary, fontSize: 12, fontWeight: '700', marginTop: 3 },
+  supplierAction: { color: colors.accentPrimary, fontSize: 11, fontWeight: '800' },
+  financialGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  financialTile: {
+    width: '48%',
+    minHeight: 60,
+    padding: 9,
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  financialLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '600' },
+  financialValue: { fontSize: 14, fontWeight: '900', marginTop: 4 },
   linkValue: {
     color: colors.accentPrimary,
     fontSize: 14,

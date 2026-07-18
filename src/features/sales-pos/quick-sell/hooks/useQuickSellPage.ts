@@ -218,6 +218,69 @@ export function useQuickSellPage() {
   const addPaymentFromRows = parsePaymentRowsTotal(addPaymentRows);
   const addPaymentTotal = addPaymentFromRows + addAdvanceApplied;
   const addCustomerAdvanceBalance = Number(addCustomer?.advanceBalance) || 0;
+  const addMaxAdvanceApplicable = Math.max(
+    0,
+    Math.min(addCustomerAdvanceBalance, addSaleTotal - addPaymentFromRows),
+  );
+
+  const updateAddAdvanceApplied = useCallback(
+    (rawValue: string | number) => {
+      const parsed = rawValue === '' ? 0 : Math.max(0, Number(rawValue) || 0);
+      setAddAdvanceApplied(
+        Math.min(
+          Math.round(parsed * 100) / 100,
+          Math.round(addMaxAdvanceApplicable * 100) / 100,
+        ),
+      );
+    },
+    [addMaxAdvanceApplicable],
+  );
+
+  const updateAddPaymentAmount = useCallback(
+    (rowId: string, rawValue: string) => {
+      setAddPaymentRows((rows) => {
+        const otherPayments = rows.reduce((sum, row) => {
+          if (row.id === rowId) return sum;
+          return sum + (parseFloat(String(row.amount)) || 0);
+        }, 0);
+        const maxForRow = Math.max(
+          0,
+          Math.round((addSaleTotal - addAdvanceApplied - otherPayments) * 100) / 100,
+        );
+        const parsed = Math.max(0, parseFloat(rawValue) || 0);
+        const cappedAmount =
+          rawValue === '' ? '' : Math.min(Math.round(parsed * 100) / 100, maxForRow);
+
+        return rows.map((row) =>
+          row.id === rowId ? { ...row, amount: cappedAmount } : row,
+        );
+      });
+    },
+    [addAdvanceApplied, addSaleTotal],
+  );
+
+  // If quantity, unit price, or advance changes after payment entry, keep
+  // the combined received amount capped at the current sale total.
+  useEffect(() => {
+    setAddPaymentRows((rows) => {
+      let remaining = Math.max(0, addSaleTotal - addAdvanceApplied);
+      let changed = false;
+      const cappedRows = rows.map((row) => {
+        if (row.amount === '') return row;
+        const current = Math.max(0, parseFloat(String(row.amount)) || 0);
+        const capped = Math.min(current, Math.round(remaining * 100) / 100);
+        remaining = Math.max(0, remaining - capped);
+        if (capped === current) return row;
+        changed = true;
+        return { ...row, amount: capped };
+      });
+      return changed ? cappedRows : rows;
+    });
+  }, [addAdvanceApplied, addSaleTotal]);
+
+  useEffect(() => {
+    setAddAdvanceApplied((current) => Math.min(current, addMaxAdvanceApplicable));
+  }, [addMaxAdvanceApplicable]);
 
   const addDefaultCashAccountId = useMemo(() => {
     if (!accessibleAccounts.length) return '';
@@ -719,8 +782,11 @@ export function useQuickSellPage() {
     addImei,
     addPaymentRows,
     setAddPaymentRows,
+    updateAddPaymentAmount,
     addAdvanceApplied,
     setAddAdvanceApplied,
+    addMaxAdvanceApplicable,
+    updateAddAdvanceApplied,
     addEmployeeId,
     setAddEmployeeId,
     addTcId,

@@ -4,7 +4,6 @@ import { API_BASE_URL, authorizedFetch } from '@/lib/config';
 import { filterAccountsByUserBranchAccess } from '@/utils/account-branch-access.utils';
 import {
   AccountOption,
-  PaymentFilter,
   StatusFilter,
   WholesaleOrder,
   WholesaleStats,
@@ -30,7 +29,6 @@ export function useWholesaleOrders() {
   const [branchId, setBranchId] = useState(selectedBranchId || '');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const [orders, setOrders] = useState<WholesaleOrder[]>([]);
@@ -72,8 +70,7 @@ export function useWholesaleOrders() {
         const params = new URLSearchParams();
         if (branchId) params.set('branchId', branchId);
         if (debouncedSearch) params.set('search', debouncedSearch);
-        if (paymentFilter !== 'all') params.set('paymentStatus', paymentFilter);
-        if (statusFilter !== 'all') params.set('orderStatus', statusFilter);
+        if (statusFilter !== 'all') params.set('fulfillmentStatus', statusFilter);
         params.set('page', String(targetPage));
         params.set('limit', String(LIMIT));
         const res = await authorizedFetch(`${API_BASE_URL}/wholesale-orders?${params}`);
@@ -103,7 +100,7 @@ export function useWholesaleOrders() {
         }
       }
     },
-    [branchId, debouncedSearch, paymentFilter, statusFilter],
+    [branchId, debouncedSearch, statusFilter],
   );
 
   useEffect(() => {
@@ -168,8 +165,6 @@ export function useWholesaleOrders() {
     selectBranch,
     search,
     setSearch,
-    paymentFilter,
-    setPaymentFilter,
     statusFilter,
     setStatusFilter,
     orders,

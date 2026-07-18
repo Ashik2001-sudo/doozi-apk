@@ -7,26 +7,23 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Zap,
-  Plus,
-  Search,
-  Store,
-  Package,
-  ClipboardList,
-  Wallet,
-} from 'lucide-react-native';
+import { Zap, Plus, Search, Package, PackageCheck, X } from 'lucide-react-native';
 import { InvoiceModal } from '@/features/sales-pos/pos/components/InvoiceModal';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
+import { colors, radius, spacing } from '@/theme/tokens';
 import { useQuickSellPage } from '../hooks/useQuickSellPage';
 import { AddQuickSellModal } from './AddQuickSellModal';
 import { QuickSellOrderCard } from './QuickSellOrderCard';
 import type { QuickSellOrder } from '../types';
+
+const STATUS_FILTERS: { key: 'all' | 'pending' | 'assigned'; label: string }[] = [
+  { key: 'all', label: 'All status' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'assigned', label: 'Assigned' },
+];
 
 export function QuickSellScreen() {
   const insets = useSafeAreaInsets();
@@ -36,170 +33,161 @@ export function QuickSellScreen() {
     <QuickSellOrderCard
       order={item}
       formatTaka={page.formatTaka}
-      busy={page.actionBusyId === item.id}
-      onReturn={() => page.handleReturn(item)}
     />
   );
 
   return (
     <View style={[styles.root, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      <LinearGradient colors={['#0f766e', '#0d9488', '#14b8a6']} style={styles.hero}>
-        <View style={styles.heroTop}>
-          <View style={styles.heroLeft}>
-            <View style={styles.heroIcon}>
-              <Zap color="#fff" size={22} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>Quick Sell</Text>
-              <Text style={styles.heroSub}>Fast, direct customer sale</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.addFab} onPress={page.handleOpenAddModal} activeOpacity={0.85}>
-            <Plus color="#0f766e" size={22} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.statsRow}>
-          <StatPill
-            icon={Zap}
-            label="Sales"
-            value={String(page.stats?.orders ?? page.orders.length)}
-          />
-          <StatPill
-            icon={ClipboardList}
-            label="Today"
-            value={String(page.stats?.todayCount ?? 0)}
-          />
-          <StatPill
-            icon={Wallet}
-            label="Sold ৳"
-            value={String(Math.round(page.stats?.totalSold ?? page.stats?.todayAmount ?? 0))}
-          />
-        </View>
-      </LinearGradient>
-
-      {page.branchList.length > 1 ? (
-        <View style={styles.branchBar}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.branchScroller}
-            contentContainerStyle={styles.branchRow}
-          >
-            {page.branchList.map((b) => {
-              const active = b.id === page.filterBranchId;
-              return (
-                <TouchableOpacity
-                  key={b.id}
-                  style={[styles.chip, active && styles.chipOn]}
-                  onPress={() => page.setFilterBranchId(b.id)}
-                  activeOpacity={0.72}
-                >
-                  <LinearGradient
-                    colors={active ? ['#6366f1', '#4f46e5'] : ['#ffffff', '#f8fafc']}
-                    style={styles.chipInner}
-                  >
-                    <View style={[styles.branchIcon, active && styles.branchIconOn]}>
-                      <Store
-                        color={active ? '#ffffff' : colors.accentPrimary}
-                        size={13}
-                        strokeWidth={2.3}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.chipText, active && styles.chipTextOn]}
-                      numberOfLines={1}
-                    >
-                      {b.name}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
-
-      <View style={styles.toolbar}>
-        <View style={styles.statusRow}>
-          {(['all', 'pending', 'assigned'] as const).map((s) => {
-            const active = page.filterStatus === s;
-            const label = s === 'all' ? 'All Sales' : s === 'pending' ? 'Pending' : 'Assigned';
-            return (
-              <TouchableOpacity
-                key={s}
-                style={[styles.statusChip, active && styles.statusChipOn]}
-                onPress={() => page.setFilterStatus(s)}
-              >
-                <Text style={[styles.statusChipText, active && styles.statusChipTextOn]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <View style={[styles.searchRow, shadows.soft]}>
-          <Search color="#0f766e" size={16} />
-          <TextInput
-            style={styles.searchInput}
-            value={page.searchTerm}
-            onChangeText={page.setSearchTerm}
-            placeholder="Search product or order…"
-            placeholderTextColor={colors.textMuted}
-          />
-        </View>
-      </View>
-
-      {page.loading && page.orders.length === 0 ? (
-        <ActivityIndicator color="#0f766e" style={{ marginTop: 48 }} />
-      ) : (
-        <FlatList
-          data={page.orders}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={
-            page.orders.length === 0 ? styles.listEmpty : styles.listContent
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={page.loading}
-              onRefresh={page.refreshList}
-              tintColor="#0f766e"
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <View style={styles.emptyIcon}>
-                <Package color={colors.textMuted} size={32} strokeWidth={1.5} />
+      <FlatList
+        data={page.orders}
+        keyExtractor={(item) => item.id}
+        renderItem={renderOrder}
+        contentContainerStyle={styles.listContent}
+        onEndReached={() => page.loadMore()}
+        onEndReachedThreshold={0.35}
+        onRefresh={page.refreshList}
+        refreshing={page.loading && page.orders.length > 0}
+        ListHeaderComponent={
+          <>
+            <LinearGradient
+              colors={['#312e81', '#4f46e5', '#7c3aed']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.hero}
+            >
+              <View style={styles.heroIcon}>
+                <Zap color="#ffffff" size={24} />
               </View>
-              <Text style={styles.emptyTitle}>No quick sells yet</Text>
-              <Text style={styles.emptyText}>
-                Tap + to create a direct quick sale
-              </Text>
-              <TouchableOpacity style={styles.emptyCta} onPress={page.handleOpenAddModal}>
-                <Plus color="#fff" size={16} />
-                <Text style={styles.emptyCtaText}>Add Sell</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroTitle}>Quick Sell</Text>
+                <Text style={styles.heroSub}>Fast, direct customer sale</Text>
+              </View>
+              <TouchableOpacity style={styles.addFab} onPress={page.handleOpenAddModal}>
+                <Plus color="#4f46e5" size={18} strokeWidth={2.6} />
+                <Text style={styles.addFabText}>New</Text>
               </TouchableOpacity>
+            </LinearGradient>
+
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <View style={[styles.statDot, { backgroundColor: colors.accentPrimary }]} />
+                <Text style={styles.statValue}>
+                  {String(page.stats?.orders ?? page.orders.length)}
+                </Text>
+                <Text style={styles.statLabel}>Sales</Text>
+              </View>
+              <View style={styles.statCard}>
+                <View style={[styles.statDot, { backgroundColor: colors.statusWarning }]} />
+                <Text style={styles.statValue}>{String(page.stats?.todayCount ?? 0)}</Text>
+                <Text style={styles.statLabel}>Today</Text>
+              </View>
+              <View style={styles.statCard}>
+                <View style={[styles.statDot, { backgroundColor: colors.statusError }]} />
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {page.formatTaka(page.stats?.pendingAmount ?? 0)}
+                </Text>
+                <Text style={styles.statLabel}>Pending</Text>
+              </View>
             </View>
-          }
-          renderItem={renderOrder}
-          onEndReached={() => page.loadMore()}
-          onEndReachedThreshold={0.35}
-          ListFooterComponent={
-            page.loading && page.orders.length > 0 ? (
-              <ActivityIndicator color="#0f766e" style={{ marginVertical: 16 }} />
-            ) : page.hasMore ? (
-              <Text style={styles.loadMoreHint}>
+
+            {page.branchList.length > 1 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.branchRow}
+              >
+                {page.branchList.map((b) => {
+                  const active = b.id === page.filterBranchId;
+                  return (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={[styles.branchChip, active && styles.branchChipOn]}
+                      onPress={() => page.setFilterBranchId(b.id)}
+                    >
+                      <Text style={[styles.branchText, active && styles.branchTextOn]}>
+                        {b.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.searchRow}>
+              <Search color={colors.accentPrimary} size={18} />
+              <TextInput
+                style={styles.searchInput}
+                value={page.searchTerm}
+                onChangeText={page.setSearchTerm}
+                placeholder="Search product, order no, customer..."
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {page.searchTerm ? (
+                <TouchableOpacity onPress={() => page.setSearchTerm('')}>
+                  <X color={colors.textMuted} size={17} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              {STATUS_FILTERS.map((f) => {
+                const active = page.filterStatus === f.key;
+                return (
+                  <TouchableOpacity
+                    key={`st-${f.key}`}
+                    style={[styles.filterChip, active && styles.filterChipOn]}
+                    onPress={() => page.setFilterStatus(f.key)}
+                  >
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextOn]}>
+                      {f.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {page.error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{page.error}</Text>
+                <TouchableOpacity onPress={page.refreshList}>
+                  <Text style={styles.retry}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {page.loading && page.orders.length === 0 ? (
+              <ActivityIndicator color={colors.accentPrimary} style={{ marginVertical: 36 }} />
+            ) : null}
+          </>
+        }
+        ListEmptyComponent={
+          !page.loading ? (
+            <View style={styles.empty}>
+              <Package color={colors.textMuted} size={42} strokeWidth={1.3} />
+              <Text style={styles.emptyTitle}>No quick sells</Text>
+              <Text style={styles.emptyText}>Tap New to create a direct quick sale</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          page.loading && page.orders.length > 0 ? (
+            <ActivityIndicator color={colors.accentPrimary} style={{ marginVertical: 16 }} />
+          ) : page.orders.length ? (
+            <View style={styles.footerRow}>
+              <PackageCheck color={colors.textMuted} size={13} />
+              <Text style={styles.footerHint}>
                 Showing {page.orders.length} of {page.total}
               </Text>
-            ) : page.orders.length > 0 ? (
-              <Text style={styles.loadMoreHint}>
-                {page.total} sale{page.total === 1 ? '' : 's'}
-              </Text>
-            ) : null
-          }
-        />
-      )}
+            </View>
+          ) : null
+        }
+      />
 
       <AddQuickSellModal page={page} />
 
@@ -215,195 +203,132 @@ export function QuickSellScreen() {
   );
 }
 
-function StatPill({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ color?: string; size?: number }>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.statPill}>
-      <Icon color="rgba(255,255,255,0.85)" size={12} />
-      <Text style={styles.statValue} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f1f5f9' },
+  root: { flex: 1, backgroundColor: colors.bgPrimary },
+  listContent: { paddingBottom: 130 },
+
   hero: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    margin: spacing.sm,
+    borderRadius: radius.xl,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   heroIcon: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
-  heroTitle: { color: '#fff', fontWeight: '800', fontSize: 20, letterSpacing: -0.3 },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2, fontWeight: '500' },
+  heroTitle: { color: '#ffffff', fontSize: 23, fontWeight: '900', letterSpacing: -0.4 },
+  heroSub: { color: 'rgba(255,255,255,0.78)', fontSize: 11.5, marginTop: 3 },
   addFab: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.soft,
-  },
-  statsRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
-  statPill: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: radius.md,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  statValue: { color: '#fff', fontWeight: '800', fontSize: 13, marginTop: 3 },
-  statLabel: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 8,
-    fontWeight: '700',
-    marginTop: 1,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  branchBar: {
-    backgroundColor: colors.bgPrimary,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  branchScroller: {
-    flexGrow: 0,
-  },
-  branchRow: {
-    paddingHorizontal: spacing.sm,
-    gap: 8,
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  chip: {
-    minWidth: 96,
-    maxWidth: 160,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
-    overflow: 'hidden',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  chipOn: {
-    borderColor: colors.accentPrimary,
-    shadowColor: colors.accentPrimary,
-    shadowOpacity: 0.28,
-    elevation: 5,
-  },
-  chipInner: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-  },
-  branchIcon: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 7,
-    backgroundColor: colors.accentSoft,
-  },
-  branchIconOn: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-  chipText: {
-    flexShrink: 1,
-    color: colors.textPrimary,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  chipTextOn: { color: '#ffffff', fontWeight: '800' },
-  toolbar: { paddingHorizontal: spacing.sm, paddingTop: 8, gap: 8 },
-  statusRow: { flexDirection: 'row', gap: 8 },
-  statusChip: {
+    height: 44,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.full,
-    backgroundColor: '#fff',
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+  },
+  addFabText: { color: '#4f46e5', fontWeight: '900', fontSize: 13 },
+
+  statsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.sm, marginBottom: 4 },
+  statCard: {
+    flex: 1,
+    borderRadius: radius.md,
+    padding: 11,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  statusChipOn: { backgroundColor: '#0f766e', borderColor: '#0f766e' },
-  statusChipText: { color: colors.textMuted, fontWeight: '700', fontSize: 12 },
-  statusChipTextOn: { color: '#fff' },
+  statValue: { color: colors.textPrimary, fontSize: 18, fontWeight: '900' },
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  statDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 7 },
+
+  branchRow: { paddingHorizontal: spacing.sm, gap: 7, paddingVertical: 8 },
+  branchChip: {
+    height: 34,
+    paddingHorizontal: 13,
+    borderRadius: 11,
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  branchChipOn: { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
+  branchText: { color: colors.textMuted, fontWeight: '700', fontSize: 11 },
+  branchTextOn: { color: '#ffffff' },
+
   searchRow: {
+    marginHorizontal: spacing.sm,
+    marginTop: 2,
+    marginBottom: 8,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  searchInput: { flex: 1, color: colors.textPrimary, fontSize: 13, paddingVertical: 10 },
+
+  filterRow: { flexDirection: 'row', gap: 7, paddingHorizontal: spacing.sm, marginBottom: 8 },
+  filterChip: {
     paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  searchInput: { flex: 1, paddingVertical: 11, color: colors.textPrimary, fontSize: 13 },
-  listContent: { padding: spacing.sm, paddingBottom: 28 },
-  listEmpty: { flexGrow: 1, justifyContent: 'center' },
-  emptyWrap: { alignItems: 'center', padding: 32 },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    alignItems: 'center',
+    height: 32,
+    borderRadius: 10,
     justifyContent: 'center',
-    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
-  emptyTitle: { color: colors.textPrimary, fontWeight: '800', fontSize: 16 },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginTop: 4,
-    textAlign: 'center',
-    lineHeight: 18,
+  filterChipOn: { backgroundColor: colors.accentSoft, borderColor: colors.borderAccent },
+  filterChipText: { color: colors.textMuted, fontWeight: '700', fontSize: 11 },
+  filterChipTextOn: { color: colors.accentPrimary },
+
+  errorBox: {
+    marginHorizontal: spacing.sm,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
-  emptyCta: {
+  errorText: { flex: 1, color: colors.statusError, fontSize: 12 },
+  retry: { color: colors.statusError, fontWeight: '800', fontSize: 12 },
+
+  empty: { alignItems: 'center', padding: 42 },
+  emptyTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 12 },
+  emptyText: { color: colors.textMuted, fontSize: 12, marginTop: 4, textAlign: 'center' },
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    marginTop: 16,
-    backgroundColor: '#0f766e',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: radius.md,
   },
-  emptyCtaText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  loadMoreHint: {
+  footerHint: {
     textAlign: 'center',
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     paddingVertical: 14,
   },

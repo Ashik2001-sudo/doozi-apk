@@ -28,6 +28,7 @@ export function useWholesaleActions({ accountsForBranch, refresh }: Params) {
   // Return state
   const [returnTarget, setReturnTarget] = useState<ReturnTarget | null>(null);
   const [returnBusy, setReturnBusy] = useState(false);
+  const [returnQty, setReturnQty] = useState('');
 
   const sellAccounts = useMemo(
     () => accountsForBranch(sellItem?.order.branch?.id),
@@ -163,40 +164,66 @@ export function useWholesaleActions({ accountsForBranch, refresh }: Params) {
 
   const openReturn = useCallback((order: WholesaleOrder, item: ReturnTarget['item']) => {
     setReturnTarget({ order, item });
+    setReturnQty('');
   }, []);
-  const closeReturn = useCallback(() => setReturnTarget(null), []);
+  const closeReturn = useCallback(() => {
+    setReturnTarget(null);
+    setReturnQty('');
+  }, []);
 
-  const confirmReturn = useCallback(async () => {
-    if (!returnTarget) return;
-    const { order, item } = returnTarget;
-    const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
-    setReturnBusy(true);
-    try {
-      const res = await authorizedFetch(
-        `${API_BASE_URL}/wholesale-orders/items/${item.id}/return`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(hasSerials ? {} : { quantity: item.quantity }),
-        },
-      );
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.message || 'Return failed');
-      const updated: WholesaleOrder = body.data ?? body;
-      const newStatus = getOrderStatusFromItems(updated.items || [], updated);
-      await authorizedFetch(`${API_BASE_URL}/wholesale-orders/${order.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderStatus: newStatus }),
-      });
-      setReturnTarget(null);
-      await refresh();
-    } catch (err) {
-      Alert.alert('Return failed', err instanceof Error ? err.message : 'Failed');
-    } finally {
-      setReturnBusy(false);
-    }
-  }, [returnTarget, refresh]);
+  // Full return when qty is omitted; partial return (non-serial items only) when qty is given.
+  const confirmReturn = useCallback(
+    async (qty?: number) => {
+      if (!returnTarget) return;
+      const { order, item } = returnTarget;
+      const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
+      const maxQty = item.quantity || 0;
+      if (qty != null && (!Number.isFinite(qty) || qty < 1 || qty > maxQty)) {
+        Alert.alert('Invalid quantity', `Enter a valid return quantity (1 to ${maxQty})`);
+        return;
+      }
+      const effectiveQty = qty ?? (hasSerials ? maxQty : undefined);
+      setReturnBusy(true);
+      try {
+        const res = await authorizedFetch(
+          `${API_BASE_URL}/wholesale-orders/items/${item.id}/return`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(effectiveQty != null ? { quantity: effectiveQty } : {}),
+          },
+        );
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body?.message || 'Return failed');
+        // Sync order status from fresh items (like seller-admin syncOrderStatusFromItems)
+        try {
+          const orderRes = await authorizedFetch(`${API_BASE_URL}/wholesale-orders/${order.id}`);
+          if (orderRes.ok) {
+            const orderJson = await orderRes.json().catch(() => ({}));
+            const fresh: WholesaleOrder = orderJson.data ?? orderJson;
+            const newStatus = getOrderStatusFromItems(fresh.items || [], fresh);
+            if (newStatus && newStatus !== (fresh.orderStatus || '')) {
+              await authorizedFetch(`${API_BASE_URL}/wholesale-orders/${order.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderStatus: newStatus }),
+              });
+            }
+          }
+        } catch {
+          // non-blocking
+        }
+        setReturnTarget(null);
+        setReturnQty('');
+        await refresh();
+      } catch (err) {
+        Alert.alert('Return failed', err instanceof Error ? err.message : 'Failed');
+      } finally {
+        setReturnBusy(false);
+      }
+    },
+    [returnTarget, refresh],
+  );
 
   return {
     // sell-out
@@ -222,6 +249,8 @@ export function useWholesaleActions({ accountsForBranch, refresh }: Params) {
     // return
     returnTarget,
     returnBusy,
+    returnQty,
+    setReturnQty,
     openReturn,
     closeReturn,
     confirmReturn,

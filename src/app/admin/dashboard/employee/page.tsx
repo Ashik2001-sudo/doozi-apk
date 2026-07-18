@@ -41,6 +41,7 @@ import { getTodayLocalDate, toLocalDateString } from '@/utils/date.utils';
 import { geolocationErrorMessage, getCheckInPosition } from '@/utils/geolocation.utils';
 import { canAccessMenuItem } from '@/utils/sidebar-permission-map';
 import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import {
   getSessionFromStorage,
@@ -81,7 +82,7 @@ const SHORTCUTS: Array<{
   { id: 'wholesale', menuId: 'sales-pos/wholesale-management', label: 'Wholesale', href: '/admin/sales-pos/wholesale-management', icon: Building2, tint: '#7c3aed' },
   { id: 'price-list', menuId: 'inventory/price-list', label: 'Price List', href: '/admin/inventory/price-list', icon: Tag, tint: '#059669' },
   { id: 'serial', menuId: 'sales-pos/serial-number', label: 'Serial', href: '/admin/sales-pos/serial-number', icon: Hash, tint: '#0891b2' },
-  { id: 'history', menuId: 'sales-pos/sales-history', label: 'History', href: '/admin/sales-pos/sales-history', icon: List, tint: '#e11d48' },
+  { id: 'manage-product', menuId: 'inventory/manage-product', label: 'Manage Product', href: '/admin/inventory/manage-product', icon: List, tint: '#10b981' },
 ];
 
 function formatTime(d: string | null): string {
@@ -467,8 +468,38 @@ export default function EmployeeDashboardPage() {
 
   if (empLoading && !employee) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accentPrimary} size="large" />
+      <View style={styles.root}>
+        <View style={[styles.skelHero, shadows.soft]}>
+          <Skeleton style={styles.skelAvatar} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Skeleton style={styles.skelLineShort} />
+            <Skeleton style={styles.skelLine} />
+            <Skeleton style={styles.skelLineNarrow} />
+          </View>
+        </View>
+        <View style={[styles.card, shadows.soft]}>
+          <View style={styles.cardHead}>
+            <Skeleton style={styles.skelCardIcon} />
+            <Skeleton style={styles.skelLineShort} />
+          </View>
+          <View style={styles.statGrid}>
+            <Skeleton style={styles.skelStat} />
+            <Skeleton style={styles.skelStat} />
+            <Skeleton style={styles.skelStat} />
+            <Skeleton style={styles.skelStat} />
+          </View>
+        </View>
+        <View style={[styles.card, shadows.soft]}>
+          <View style={styles.cardHead}>
+            <Skeleton style={styles.skelCardIcon} />
+            <Skeleton style={styles.skelLineShort} />
+          </View>
+          <Skeleton style={styles.skelTimer} />
+          <View style={styles.actions}>
+            <Skeleton style={styles.skelAction} />
+            <Skeleton style={styles.skelAction} />
+          </View>
+        </View>
       </View>
     );
   }
@@ -1057,4 +1088,25 @@ const styles = StyleSheet.create({
   },
   statusPresent: { backgroundColor: '#d1fae5' },
   statusText: { color: colors.textPrimary, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  skelHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginHorizontal: spacing.sm,
+    marginTop: spacing.sm,
+    borderRadius: radius.xl,
+    padding: 18,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    minHeight: 108,
+  },
+  skelAvatar: { width: 72, height: 72, borderRadius: 20 },
+  skelLineShort: { width: '38%', height: 11 },
+  skelLine: { width: '68%', height: 16 },
+  skelLineNarrow: { width: '52%', height: 10 },
+  skelCardIcon: { width: 36, height: 36, borderRadius: 12 },
+  skelStat: { width: '48%', flexGrow: 1, height: 74, borderRadius: 14 },
+  skelTimer: { height: 118, borderRadius: radius.lg, marginBottom: 12 },
+  skelAction: { flex: 1, height: 50, borderRadius: 15 },
 });

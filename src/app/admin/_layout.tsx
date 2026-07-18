@@ -4,17 +4,26 @@ import { Slot, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LayoutDashboard, ShoppingCart, History, LogOut, Store } from 'lucide-react-native';
+import { LayoutDashboard, ShoppingCart, Zap, LogOut, Store } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { SubscriptionAccessGate } from '@/components/SubscriptionAccessGate';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 
 const TAB_ITEMS = [
   { href: '/admin/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/admin/sales-pos/pos', label: 'POS', icon: ShoppingCart },
-  { href: '/admin/sales-pos/sales-history', label: 'Orders', icon: History },
+  { href: '/admin/sales-pos/quick-sell', label: 'Quick Sell', icon: Zap },
 ];
 
 export default function AdminLayout() {
+  return (
+    <SubscriptionAccessGate>
+      <AdminLayoutContent />
+    </SubscriptionAccessGate>
+  );
+}
+
+function AdminLayoutContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();

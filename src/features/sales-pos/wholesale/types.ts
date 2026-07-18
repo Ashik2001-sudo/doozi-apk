@@ -76,10 +76,14 @@ export type PosProductLite = {
   id: string;
   name: string;
   hasSerialNumber?: boolean;
+  images?: string[];
+  sellerBrand?: { name: string };
+  brand?: { name: string };
   variants: Array<{
     id: string;
     sku: string;
     stockQuantity?: number;
+    images?: string[];
     price?: { sellingPrice?: number };
     attributes?: Array<{ attributeName?: string; attributeValue?: string; name?: string; value?: string }>;
     serialNumbers?: Array<{ serialNumber: string; status?: string } | string>;
@@ -89,7 +93,6 @@ export type PosProductLite = {
 export type SellTarget = { order: WholesaleOrder; item: WholesaleItem };
 export type ReturnTarget = { order: WholesaleOrder; item: WholesaleItem };
 
-export type PaymentFilter = 'all' | 'paid' | 'partial' | 'due';
 export type StatusFilter = 'all' | 'pending' | 'completed';
 
 export type WholesaleStats = {

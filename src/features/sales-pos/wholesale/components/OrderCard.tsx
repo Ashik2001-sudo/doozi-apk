@@ -5,8 +5,8 @@ import {
   ChevronRight,
   Clock,
   Package,
-  ShoppingBag,
-  Undo2,
+  RotateCcw,
+  ShoppingCart,
 } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { styles } from '../styles';
@@ -16,9 +16,9 @@ type Props = {
   order: WholesaleOrder;
   expanded: boolean;
   onToggle: () => void;
+  onOpenSale: (saleOrderId: string) => void;
   onSellOut: (order: WholesaleOrder, item: WholesaleItem) => void;
   onReturn: (order: WholesaleOrder, item: WholesaleItem) => void;
-  onOpenSale: (saleOrderId: string) => void;
 };
 
 function statusBorderColor(order: WholesaleOrder) {
@@ -33,9 +33,9 @@ export const OrderCard = React.memo(function OrderCard({
   order,
   expanded,
   onToggle,
+  onOpenSale,
   onSellOut,
   onReturn,
-  onOpenSale,
 }: Props) {
   const pendingCount = (order.items || []).filter(
     (i) => (i.status || 'pending').toLowerCase() === 'pending',
@@ -95,6 +95,7 @@ export const OrderCard = React.memo(function OrderCard({
             const st = (it.status || 'pending').toLowerCase();
             const color = itemStatusColor(st);
             const sold = st === 'sold' || st === 'sold_out';
+            const pending = st === 'pending';
             return (
               <View key={it.id} style={styles.itemCard}>
                 <Text style={styles.itemName} numberOfLines={2}>
@@ -121,27 +122,30 @@ export const OrderCard = React.memo(function OrderCard({
                     </Text>
                   </View>
                   <View style={styles.itemActions}>
-                    {st === 'pending' ? (
-                      <TouchableOpacity style={styles.actionBtn} onPress={() => onSellOut(order, it)}>
-                        <ShoppingBag color="#ffffff" size={14} />
-                        <Text style={styles.actionText}>Sell out</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {sold || st === 'pending' ? (
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.returnBtn]}
-                        onPress={() => onReturn(order, it)}
-                      >
-                        <Undo2 color="#ffffff" size={14} />
-                        <Text style={styles.actionText}>Return</Text>
-                      </TouchableOpacity>
-                    ) : null}
                     {it.saleOrderId ? (
                       <TouchableOpacity
                         style={[styles.actionBtn, styles.viewBtn]}
                         onPress={() => onOpenSale(it.saleOrderId as string)}
                       >
                         <Text style={[styles.actionText, { color: colors.accentPrimary }]}>Sale</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {pending ? (
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => onSellOut(order, it)}
+                      >
+                        <ShoppingCart color="#ffffff" size={12} />
+                        <Text style={styles.actionText}>Sell</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {pending || sold ? (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.returnBtn]}
+                        onPress={() => onReturn(order, it)}
+                      >
+                        <RotateCcw color="#ffffff" size={12} />
+                        <Text style={styles.actionText}>Return</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>

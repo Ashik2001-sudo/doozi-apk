@@ -6,7 +6,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  ActivityIndicator,
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -15,6 +14,7 @@ import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranches } from '@/hooks/branch/useBranches';
 import { useDashboardStats } from '@/hooks/dashboard/useDashboardStats';
+import { Skeleton } from '@/components/ui/skeleton';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import {
   ArrowUpRight,
@@ -47,7 +47,7 @@ const SHORTCUTS: Array<{
   { id: 'wholesale', label: 'Wholesale', href: '/admin/sales-pos/wholesale-management', icon: Building2, tint: '#7c3aed' },
   { id: 'price-list', label: 'Price List', href: '/admin/inventory/price-list', icon: Tag, tint: '#059669' },
   { id: 'serial', label: 'Serial', href: '/admin/sales-pos/serial-number', icon: Hash, tint: '#0891b2' },
-  { id: 'history', label: 'History', href: '/admin/sales-pos/sales-history', icon: List, tint: '#e11d48' },
+  { id: 'manage-product', label: 'Manage Product', href: '/admin/inventory/manage-product', icon: List, tint: '#10b981' },
 ];
 
 function KpiCard({
@@ -85,6 +85,35 @@ function KpiCard({
   );
 }
 
+function KpiCardSkeleton() {
+  return (
+    <View style={[styles.kpi, shadows.soft, { width: COL, borderTopColor: '#e2e8f0' }]}>
+      <View style={styles.kpiHead}>
+        <Skeleton style={styles.skelIcon} />
+      </View>
+      <Skeleton style={styles.skelLabel} />
+      <Skeleton style={styles.skelValue} />
+      <Skeleton style={styles.skelSub} />
+    </View>
+  );
+}
+
+function OrderRowSkeleton({ last }: { last?: boolean }) {
+  return (
+    <View style={[styles.orderRow, last && { borderBottomWidth: 0 }]}>
+      <Skeleton style={styles.orderDotSkel} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Skeleton style={styles.skelOrderInvoice} />
+        <Skeleton style={styles.skelOrderMeta} />
+        <Skeleton style={styles.skelOrderStatus} />
+      </View>
+      <View style={styles.orderRight}>
+        <Skeleton style={styles.skelOrderTotal} />
+      </View>
+    </View>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, tenant } = useAuth();
@@ -103,18 +132,26 @@ export default function DashboardPage() {
 
   if (user?.role === 'employee') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.accentPrimary} />
+      <View style={styles.container}>
+        <Skeleton style={styles.skelHero} />
+        <View style={styles.kpiGrid}>
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+        </View>
       </View>
     );
   }
+
+  const initialLoading = loading && !saleStats;
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 110 }}
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={() => void refetch()} tintColor={colors.accentPrimary} />
+        <RefreshControl refreshing={loading && !initialLoading} onRefresh={() => void refetch()} tintColor={colors.accentPrimary} />
       }
       showsVerticalScrollIndicator={false}
     >
@@ -152,9 +189,6 @@ export default function DashboardPage() {
         </ScrollView>
       ) : null}
 
-      {loading && !saleStats ? (
-        <ActivityIndicator color={colors.accentPrimary} style={{ marginTop: 28 }} />
-      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.shortcutSection}>
@@ -182,10 +216,21 @@ export default function DashboardPage() {
       </View>
 
       <View style={styles.kpiGrid}>
-        <KpiCard label="Today sales" value={String(saleStats?.todaySales ?? 0)} sub={fmt(saleStats?.todayRevenue)} icon={ShoppingBag} tint="#4f46e5" delay={40} />
-        <KpiCard label="Today revenue" value={fmt(saleStats?.todayRevenue)} icon={DollarSign} tint="#7c3aed" delay={80} />
-        <KpiCard label="This month" value={String(saleStats?.monthlySales ?? 0)} sub={fmt(saleStats?.monthlyRevenue)} icon={TrendingUp} tint="#6366f1" delay={120} />
-        <KpiCard label="All time" value={fmt(saleStats?.totalRevenue)} icon={DollarSign} tint="#8b5cf6" delay={160} />
+        {initialLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Today sales" value={String(saleStats?.todaySales ?? 0)} sub={fmt(saleStats?.todayRevenue)} icon={ShoppingBag} tint="#4f46e5" delay={40} />
+            <KpiCard label="Today revenue" value={fmt(saleStats?.todayRevenue)} icon={DollarSign} tint="#7c3aed" delay={80} />
+            <KpiCard label="This month" value={String(saleStats?.monthlySales ?? 0)} sub={fmt(saleStats?.monthlyRevenue)} icon={TrendingUp} tint="#6366f1" delay={120} />
+            <KpiCard label="All time" value={fmt(saleStats?.totalRevenue)} icon={DollarSign} tint="#8b5cf6" delay={160} />
+          </>
+        )}
       </View>
 
       <Animated.View entering={FadeInRight.delay(200).duration(500)} style={styles.quickWrap}>
@@ -215,7 +260,13 @@ export default function DashboardPage() {
       </View>
 
       <View style={[styles.ordersCard, shadows.soft]}>
-        {recentOrders.length === 0 ? (
+        {initialLoading ? (
+          <>
+            <OrderRowSkeleton />
+            <OrderRowSkeleton />
+            <OrderRowSkeleton last />
+          </>
+        ) : recentOrders.length === 0 ? (
           <Text style={styles.empty}>No recent orders yet</Text>
         ) : (
           recentOrders.map((order, i) => (
@@ -447,4 +498,20 @@ const styles = StyleSheet.create({
   },
   orderRight: { alignItems: 'flex-end', gap: 8 },
   orderTotal: { color: colors.accentPrimary, fontWeight: '800', fontSize: 14 },
+  skelHero: {
+    marginHorizontal: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    height: 150,
+    borderRadius: radius.xl,
+  },
+  skelIcon: { width: 36, height: 36, borderRadius: 12, marginBottom: 10 },
+  skelLabel: { width: '55%', height: 10, marginTop: 2 },
+  skelValue: { width: '70%', height: 18, marginTop: 8 },
+  skelSub: { width: '40%', height: 9, marginTop: 8 },
+  orderDotSkel: { width: 10, height: 42, borderRadius: 5 },
+  skelOrderInvoice: { width: '45%', height: 12 },
+  skelOrderMeta: { width: '60%', height: 10 },
+  skelOrderStatus: { width: 64, height: 14, borderRadius: radius.full },
+  skelOrderTotal: { width: 58, height: 12 },
 });

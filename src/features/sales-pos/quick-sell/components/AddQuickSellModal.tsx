@@ -79,7 +79,6 @@ export function AddQuickSellModal({ page }: Props) {
   if (!page.showAddModal) return null;
 
   const due = Math.max(0, page.addSaleTotal - page.addPaymentTotal);
-  const change = Math.max(0, page.addPaymentTotal - page.addSaleTotal);
   const isWalkIn = !page.addCustomer;
   const payProgress = page.addSaleTotal
     ? Math.min(100, (page.addPaymentTotal / page.addSaleTotal) * 100)
@@ -89,7 +88,12 @@ export function AddQuickSellModal({ page }: Props) {
     <>
       <Modal visible={page.showAddModal} animationType="slide" onRequestClose={() => page.setShowAddModal(false)}>
         <View style={[styles.root, { paddingTop: insets.top }]}>
-          <LinearGradient colors={['#0f766e', '#14b8a6']} style={styles.header}>
+          <LinearGradient
+            colors={['#312e81', '#4f46e5', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
             <View style={styles.headerRow}>
               <View style={styles.headerLeft}>
                 <Zap color="#fff" size={20} />
@@ -121,7 +125,7 @@ export function AddQuickSellModal({ page }: Props) {
             <View style={[styles.card, shadows.soft]}>
               <View style={styles.customerHeader}>
                 <View style={styles.customerHeaderTitle}>
-                  <User color="#0f766e" size={15} />
+                  <User color={colors.accentPrimary} size={15} />
                   <Text style={[styles.section, { marginBottom: 0 }]}>Order Details</Text>
                 </View>
                 {page.addCustomer ? (
@@ -139,7 +143,7 @@ export function AddQuickSellModal({ page }: Props) {
               <View style={styles.row}>
                 <TouchableOpacity style={styles.customerPick} onPress={() => setCustomerPickOpen(true)}>
                   <View style={styles.customerAvatar}>
-                    <User color={isWalkIn ? colors.textMuted : '#0f766e'} size={16} />
+                    <User color={isWalkIn ? colors.textMuted : colors.accentPrimary} size={16} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.customerPickText} numberOfLines={1}>
@@ -229,12 +233,12 @@ export function AddQuickSellModal({ page }: Props) {
               <View style={styles.variantHeader}>
                 <Text style={styles.label}>Variant attributes</Text>
                 <TouchableOpacity onPress={page.handleAddVariantRow} style={styles.addVariantLink}>
-                  <Plus color="#0f766e" size={14} />
+                  <Plus color={colors.accentPrimary} size={14} />
                   <Text style={styles.link}>Add</Text>
                 </TouchableOpacity>
               </View>
               {page.attributesLoading ? (
-                <ActivityIndicator color="#0f766e" style={{ marginBottom: 10 }} />
+                <ActivityIndicator color={colors.accentPrimary} style={{ marginBottom: 10 }} />
               ) : page.attributes.length === 0 ? (
                 <Text style={[styles.hint, { marginBottom: 10 }]}>
                   No attributes found for this branch
@@ -351,8 +355,8 @@ export function AddQuickSellModal({ page }: Props) {
                       page.setAddCurrentImeiInput('');
                     }
                   }}
-                  trackColor={{ false: '#cbd5e1', true: '#5eead4' }}
-                  thumbColor={page.addHasImei ? '#0f766e' : '#f8fafc'}
+                  trackColor={{ false: '#cbd5e1', true: '#c7d2fe' }}
+                  thumbColor={page.addHasImei ? colors.accentPrimary : '#f8fafc'}
                 />
               </View>
               {page.addHasImei ? (
@@ -416,15 +420,7 @@ export function AddQuickSellModal({ page }: Props) {
                       <TextInput
                         style={[styles.input, { flex: 1, marginBottom: 0 }]}
                         value={row.amount === '' ? '' : String(row.amount)}
-                        onChangeText={(v) =>
-                          page.setAddPaymentRows(
-                            page.addPaymentRows.map((r) =>
-                              r.id === row.id
-                                ? { ...r, amount: v === '' ? '' : parseFloat(v) || 0 }
-                                : r,
-                            ),
-                          )
-                        }
+                        onChangeText={(v) => page.updateAddPaymentAmount(row.id, v)}
                         placeholder="Amount"
                         placeholderTextColor={colors.textMuted}
                         keyboardType="decimal-pad"
@@ -463,22 +459,37 @@ export function AddQuickSellModal({ page }: Props) {
                   <Text style={styles.hint}>
                     Advance: {page.formatTaka(page.addCustomerAdvanceBalance)}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      page.setAddAdvanceApplied(
-                        Math.min(
-                          page.addCustomerAdvanceBalance,
-                          Math.max(0, page.addSaleTotal - page.addPaymentTotal + page.addAdvanceApplied),
-                        ),
-                      )
-                    }
-                  >
-                    <Text style={styles.link}>Use advance</Text>
-                  </TouchableOpacity>
-                  {page.addAdvanceApplied > 0 ? (
-                    <TouchableOpacity onPress={() => page.setAddAdvanceApplied(0)}>
-                      <Text style={styles.clear}>Clear {page.formatTaka(page.addAdvanceApplied)}</Text>
+                  {page.addMaxAdvanceApplicable > 0 || page.addAdvanceApplied > 0 ? (
+                    <View style={styles.advanceActions}>
+                    <TouchableOpacity
+                      style={styles.advanceUseBtn}
+                      onPress={() =>
+                        page.updateAddAdvanceApplied(page.addMaxAdvanceApplicable)
+                      }
+                    >
+                      <Text style={styles.link}>
+                        Use {page.formatTaka(page.addMaxAdvanceApplicable)}
+                      </Text>
                     </TouchableOpacity>
+                    <View style={styles.advanceInputWrap}>
+                      <Text style={styles.advanceCurrency}>৳</Text>
+                      <TextInput
+                        style={styles.advanceInput}
+                        value={
+                          page.addAdvanceApplied > 0 ? String(page.addAdvanceApplied) : ''
+                        }
+                        onChangeText={page.updateAddAdvanceApplied}
+                        keyboardType="decimal-pad"
+                        placeholder="Custom amount"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                    {page.addAdvanceApplied > 0 ? (
+                      <TouchableOpacity onPress={() => page.setAddAdvanceApplied(0)}>
+                        <Text style={styles.clear}>Clear</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    </View>
                   ) : null}
                 </View>
               ) : null}
@@ -547,12 +558,6 @@ export function AddQuickSellModal({ page }: Props) {
                   <Text style={styles.smLabel}>Received</Text>
                   <Text style={[styles.smValue, { color: '#059669' }]}>
                     {page.formatTaka(page.addPaymentTotal)}
-                  </Text>
-                </View>
-                <View style={styles.summaryMetric}>
-                  <Text style={styles.smLabel}>Change</Text>
-                  <Text style={[styles.smValue, { color: '#0284c7' }]}>
-                    {page.formatTaka(change)}
                   </Text>
                 </View>
                 <View style={styles.summaryMetric}>
@@ -835,7 +840,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 11,
-    backgroundColor: '#ccfbf1',
+    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -862,7 +867,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.md,
-    backgroundColor: '#0f766e',
+    backgroundColor: colors.accentPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -890,7 +895,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.md,
-    backgroundColor: '#0f766e',
+    backgroundColor: colors.accentPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -956,7 +961,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 10,
   },
-  currency: { color: '#0f766e', fontWeight: '800', fontSize: 16, marginRight: 4 },
+  currency: { color: colors.accentPrimary, fontWeight: '800', fontSize: 16, marginRight: 4 },
   priceInput: {
     flex: 1,
     paddingVertical: 10,
@@ -974,7 +979,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderLight,
   },
   totalLabel: { color: colors.textSecondary, fontWeight: '700', fontSize: 13 },
-  totalValue: { color: '#0f766e', fontWeight: '800', fontSize: 18 },
+  totalValue: { color: colors.accentPrimary, fontWeight: '800', fontSize: 18 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   imeiChip: {
     flexDirection: 'row',
@@ -1003,6 +1008,30 @@ const styles = StyleSheet.create({
   },
   addAccount: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   advanceBox: { marginTop: 10, gap: 6 },
+  advanceActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  advanceUseBtn: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    backgroundColor: colors.accentSoft,
+  },
+  advanceInputWrap: {
+    flex: 1,
+    minWidth: 120,
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: '#ffffff',
+  },
+  advanceCurrency: { color: colors.statusSuccess, fontSize: 13, fontWeight: '800', marginRight: 4 },
+  advanceInput: { flex: 1, color: colors.textPrimary, fontSize: 12, paddingVertical: 0 },
   clear: { color: colors.statusError, fontSize: 11, fontWeight: '600' },
   chip: {
     paddingHorizontal: 12,
@@ -1013,7 +1042,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     marginRight: 8,
   },
-  chipOn: { backgroundColor: '#ccfbf1', borderColor: '#5eead4' },
+  chipOn: { backgroundColor: colors.accentSoft, borderColor: colors.borderAccent },
   chipText: { color: colors.textPrimary, fontSize: 12, fontWeight: '600' },
   footer: {
     paddingHorizontal: spacing.sm,
@@ -1023,10 +1052,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   summaryBar: {
-    backgroundColor: '#f0fdfa',
+    backgroundColor: colors.accentSoft,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#99f6e4',
+    borderColor: colors.borderAccent,
     padding: 10,
     marginBottom: 10,
   },
@@ -1037,21 +1066,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   summaryTotalLabel: {
-    color: '#0f766e',
+    color: colors.accentPrimary,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  summaryTotalValue: { color: '#0f766e', fontWeight: '800', fontSize: 18 },
+  summaryTotalValue: { color: colors.accentPrimary, fontWeight: '800', fontSize: 18 },
   progressTrack: {
     height: 4,
-    backgroundColor: '#ccfbf1',
+    backgroundColor: '#e0e7ff',
     borderRadius: radius.full,
     overflow: 'hidden',
     marginBottom: 8,
   },
-  progressFill: { height: '100%', backgroundColor: '#0f766e', borderRadius: radius.full },
+  progressFill: { height: '100%', backgroundColor: colors.accentPrimary, borderRadius: radius.full },
   summaryMetrics: { flexDirection: 'row' },
   summaryMetric: { flex: 1, alignItems: 'center' },
   smLabel: {
