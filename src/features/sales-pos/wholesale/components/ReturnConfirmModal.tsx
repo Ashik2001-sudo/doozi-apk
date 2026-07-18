@@ -50,13 +50,13 @@ export function ReturnConfirmModal({ actions }: { actions: UseWholesaleActions }
               >
                 {isSold
                   ? hasSerials
-                    ? `This restores stock & reverses payments for the full quantity (${item.quantity}).`
+                    ? `Full qty (${item.quantity}) — stock & payments restored.`
                     : isVariableQty
-                      ? `Return some units (partial) or all ${maxQty} units. Stock & payments will be restored.`
-                      : 'This restores stock & reverses payments for this item.'
+                      ? `Partial or all ${maxQty} units — stock & payments restored.`
+                      : 'Stock & payments will be restored.'
                   : isVariableQty
-                    ? `Item not sold out yet — return removes units from the order and reduces the order total. Return some units (partial) or all ${maxQty}.`
-                    : 'Item not sold out yet — return removes it from the order and reduces the order total. No stock or payment change.'}
+                    ? `Not sold yet — removes from order (partial or all ${maxQty}).`
+                    : 'Not sold yet — removes from order. No stock/payment change.'}
               </Text>
 
               {isSold ? (

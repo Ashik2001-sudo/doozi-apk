@@ -343,15 +343,6 @@ export default function SerialNumberPage() {
             <View style={styles.sectionHead}>
               <CreditCard color={colors.accentPrimary} size={18} />
               <Text style={styles.sectionTitle}>Purchase Info</Text>
-              {match.purchase.id ? (
-                <TouchableOpacity
-                  style={styles.viewBtn}
-                  onPress={() => router.push(`/admin/purchases/${match.purchase?.id}` as never)}
-                >
-                  <Eye color={colors.accentPrimary} size={14} />
-                  <Text style={styles.viewBtnText}>View</Text>
-                </TouchableOpacity>
-              ) : null}
             </View>
             <InfoRow label="Bill No" value={match.purchase.billNo ?? '—'} />
             <InfoRow label="Invoice No" value={match.purchase.invoiceNo ?? '—'} />
@@ -495,7 +486,7 @@ export default function SerialNumberPage() {
                     <TouchableOpacity
                       style={styles.viewBtn}
                       onPress={() =>
-                        router.push(`/admin/sales-pos/sales-history/${sale.id}` as never)
+                        router.push('/admin/sales-pos/sales-history' as never)
                       }
                     >
                       <Eye color={colors.accentPrimary} size={14} />

@@ -331,11 +331,7 @@ export default function SupplierDetailsPage() {
             ) : activeTab === 'business' ? (
               purchases.length ? (
                 purchases.map((purchase) => (
-                  <PurchaseCard
-                    key={purchase.id}
-                    purchase={purchase}
-                    onPress={() => router.push(`/admin/purchases/${purchase.id}` as never)}
-                  />
+                  <PurchaseCard key={purchase.id} purchase={purchase} />
                 ))
               ) : (
                 <EmptyHistory text="No purchase invoices found" />
@@ -433,7 +429,7 @@ function TabButton({
   );
 }
 
-function PurchaseCard({ purchase, onPress }: { purchase: Purchase; onPress: () => void }) {
+function PurchaseCard({ purchase }: { purchase: Purchase }) {
   const statusColor =
     purchase.paymentStatus === 'paid'
       ? '#059669'
@@ -441,7 +437,7 @@ function PurchaseCard({ purchase, onPress }: { purchase: Purchase; onPress: () =
         ? '#d97706'
         : '#e11d48';
   return (
-    <TouchableOpacity style={styles.itemCard} activeOpacity={0.72} onPress={onPress}>
+    <View style={styles.itemCard}>
       <View style={styles.itemTop}>
         <View style={{ flex: 1 }}>
           <Text style={styles.itemTitle}>{purchase.billNo || purchase.invoiceNo || 'Purchase'}</Text>
@@ -455,9 +451,8 @@ function PurchaseCard({ purchase, onPress }: { purchase: Purchase; onPress: () =
         <Amount label="Total" value={money(purchase.grandTotal)} />
         <Amount label="Paid" value={money(purchase.paidAmount)} color="#059669" />
         <Amount label="Due" value={money(purchase.dueAmount)} color="#e11d48" />
-        <ChevronRight color={colors.textMuted} size={18} />
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 

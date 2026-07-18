@@ -28,9 +28,9 @@ export function WholesaleScreen() {
       <WholesaleList
         orders={orders}
         onCreate={create.openModal}
-        onOpenSale={(saleOrderId) =>
-          router.push(`/admin/sales-pos/sales-history/${saleOrderId}` as never)
-        }
+        onOpenSale={() => {
+          router.push('/admin/sales-pos/sales-history' as never);
+        }}
         onSellOut={actions.openSellOut}
         onReturn={actions.openReturn}
       />

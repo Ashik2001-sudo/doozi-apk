@@ -1,6 +1,5 @@
 import React from 'react';
-import { FlatList, View, Text, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { FlatList, View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/config';
 import { colors, spacing } from '@/theme/tokens';
@@ -16,7 +15,6 @@ interface SaleOrder {
 }
 
 export default function SalesHistoryPage() {
-  const router = useRouter();
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['sales-history'],
     queryFn: async () => {
@@ -41,10 +39,7 @@ export default function SalesHistoryPage() {
       }
       ListEmptyComponent={<Text style={styles.empty}>No sales found</Text>}
       renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => router.push(`/admin/sales-pos/sales-history/${item.id}` as never)}
-        >
+        <View style={styles.row}>
           <View>
             <Text style={styles.invoice}>{item.invoiceNo || item.orderNo}</Text>
             <Text style={styles.meta}>
@@ -55,7 +50,7 @@ export default function SalesHistoryPage() {
             <Text style={styles.total}>৳{item.grandTotal.toLocaleString()}</Text>
             <Text style={styles.status}>{item.paymentStatus}</Text>
           </View>
-        </TouchableOpacity>
+        </View>
       )}
     />
   );

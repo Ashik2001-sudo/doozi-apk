@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isReady) return;
-    const inAuth = segments[0] === 'login' || segments[0] === 'signup';
+    const inAuth = segments[0] === 'login';
     const authed = isAuthenticated();
     if (!authed && !inAuth) {
       router.replace('/login');

@@ -273,7 +273,7 @@ export default function DashboardPage() {
             <TouchableOpacity
               key={order.id}
               style={[styles.orderRow, i === recentOrders.length - 1 && { borderBottomWidth: 0 }]}
-              onPress={() => router.push(`/admin/sales-pos/sales-history/${order.id}` as never)}
+              onPress={() => router.push('/admin/sales-pos/sales-history' as never)}
             >
               <View style={styles.orderDot} />
               <View style={{ flex: 1 }}>
