@@ -112,12 +112,37 @@ export function generateWholesaleOrderNo() {
   return `WS-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+export type WholesaleFulfillmentStatus = 'pending' | 'completed';
+
+/** Item-line badge colors — matches seller-admin Sold / Returned / Pending. */
 export function itemStatusColor(status?: string) {
-  const s = (status || '').toLowerCase();
-  if (s === 'sold' || s === 'completed') return '#059669';
-  if (s === 'returned') return '#d97706';
+  const s = (status || 'pending').toLowerCase();
+  if (s === 'sold' || s === 'sold_out' || s === 'completed') return '#059669';
+  if (s === 'returned') return '#2563eb';
   if (s === 'cancelled') return '#e11d48';
-  return '#2563eb';
+  return '#d97706'; // pending
+}
+
+/**
+ * Order fulfillment status (UI + filter) — item lines only, not payment:
+ * - pending: at least one line is still awaiting sell-out
+ * - completed: every line is sold_out or returned (or mix)
+ */
+export function getOrderStatusFromItems(
+  items: WholesaleItem[],
+  _order?: unknown,
+): WholesaleFulfillmentStatus {
+  if (!items?.length) return 'completed';
+  if (items.some((i) => (i.status || 'pending').toLowerCase() === 'pending')) return 'pending';
+  return 'completed';
+}
+
+export function getFulfillmentStatusLabel(status: WholesaleFulfillmentStatus): string {
+  return status === 'pending' ? 'Pending' : 'Complete';
+}
+
+export function fulfillmentStatusColor(status: WholesaleFulfillmentStatus): string {
+  return status === 'pending' ? '#d97706' : '#059669';
 }
 
 export function variantLabel(v: CartLine['variantDisplay'] | WholesaleItem['variant']) {
@@ -127,13 +152,4 @@ export function variantLabel(v: CartLine['variantDisplay'] | WholesaleItem['vari
     .map((a) => a.attributeValue || a.value || '')
     .filter(Boolean)
     .join(' · ');
-}
-
-export function getOrderStatusFromItems(items: WholesaleItem[], order?: WholesaleOrder) {
-  if (!items.length) return order?.orderStatus || 'pending';
-  const statuses = items.map((i) => (i.status || 'pending').toLowerCase());
-  if (statuses.every((s) => s === 'returned')) return 'returned';
-  if (statuses.every((s) => s === 'sold' || s === 'returned')) return 'completed';
-  if (statuses.some((s) => s === 'sold')) return 'pending';
-  return order?.orderStatus || 'pending';
 }

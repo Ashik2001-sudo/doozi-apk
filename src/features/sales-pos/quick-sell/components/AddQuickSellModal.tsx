@@ -227,7 +227,7 @@ export function AddQuickSellModal({ page }: Props) {
                 style={styles.input}
                 value={page.addProductName}
                 onChangeText={page.setAddProductName}
-                placeholder="e.g. iPhone 15"
+                placeholder="Product name"
                 placeholderTextColor={colors.textMuted}
               />
               <View style={styles.variantHeader}>
@@ -547,7 +547,7 @@ export function AddQuickSellModal({ page }: Props) {
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <View style={styles.summaryBar}>
               <View style={styles.summaryTop}>
-                <Text style={styles.summaryTotalLabel}>Total</Text>
+                <Text style={styles.summaryTotalLabel}>Grand Total</Text>
                 <Text style={styles.summaryTotalValue}>{page.formatTaka(page.addSaleTotal)}</Text>
               </View>
               <View style={styles.progressTrack}>

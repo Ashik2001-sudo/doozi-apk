@@ -20,6 +20,7 @@ import {
   Crown,
   Search,
   ShoppingCart as CartIcon,
+  Clock3,
 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { CartLineItem } from '@/features/sales-pos/pos/components/CartLineItem';
@@ -44,6 +45,7 @@ interface CartPanelProps {
   isWalkingCustomer: boolean;
   onClose?: () => void;
   onCheckout: () => void;
+  onPayLater: () => void;
   onUpdateQuantity: (itemId: string, quantity: number, batchNumbers?: string[]) => void;
   onAddOneMore?: (item: CartItem) => void;
   onUpdateUnitPrice: (itemId: string, unitPrice: number) => void;
@@ -67,6 +69,7 @@ export function CartPanel({
   isWalkingCustomer,
   onClose,
   onCheckout,
+  onPayLater,
   onUpdateQuantity,
   onAddOneMore,
   onUpdateUnitPrice,
@@ -292,13 +295,25 @@ export function CartPanel({
             <TouchableOpacity style={styles.clearBtn} onPress={handleClear}>
               <Text style={styles.clearBtnText}>Clear cart</Text>
             </TouchableOpacity>
-            <View style={styles.checkoutWrap}>
-              <Button
-                title={`Checkout · ${formatCurrency(orderSummary.grandTotal)}`}
-                disabled={cart.length === 0}
-                loading={loading}
-                onPress={onCheckout}
-              />
+            <View style={styles.orderActions}>
+              {!isWalkingCustomer && customer ? (
+                <TouchableOpacity
+                  style={[styles.payLaterBtn, loading && styles.actionDisabled]}
+                  onPress={onPayLater}
+                  disabled={loading || cart.length === 0}
+                >
+                  <Clock3 color="#d97706" size={17} />
+                  <Text style={styles.payLaterBtnText}>Pay Later</Text>
+                </TouchableOpacity>
+              ) : null}
+              <View style={styles.checkoutWrap}>
+                <Button
+                  title={`Checkout · ${formatCurrency(orderSummary.grandTotal)}`}
+                  disabled={cart.length === 0}
+                  loading={loading}
+                  onPress={onCheckout}
+                />
+              </View>
             </View>
           </View>
         </View>
@@ -529,5 +544,20 @@ const styles = StyleSheet.create({
     borderColor: '#fecaca',
   },
   clearBtnText: { color: colors.statusError, fontWeight: '700', fontSize: 13 },
-  checkoutWrap: { width: '100%' },
+  orderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  payLaterBtn: {
+    height: 46,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radius.md,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+  },
+  payLaterBtnText: { color: '#b45309', fontSize: 12, fontWeight: '800' },
+  actionDisabled: { opacity: 0.55 },
+  checkoutWrap: { flex: 1, minWidth: 0 },
 });

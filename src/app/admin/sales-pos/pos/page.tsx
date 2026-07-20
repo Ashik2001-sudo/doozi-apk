@@ -18,6 +18,7 @@ import { usePOS } from '@/features/sales-pos/pos/hooks/usePOS';
 import { POSProduct, POSProductVariant } from '@/features/sales-pos/pos/types/pos.types';
 import { CartPanel } from '@/features/sales-pos/pos/components/CartPanel';
 import { CompleteOrderModal } from '@/features/sales-pos/pos/components/complete-order/CompleteOrderModal';
+import { PayLaterModal } from '@/features/sales-pos/pos/components/PayLaterModal';
 import { ProductCard, ProductGridSkeleton } from '@/features/sales-pos/pos/components/ProductCard';
 import { BarcodeScannerModal } from '@/features/sales-pos/pos/components/BarcodeScannerModal';
 import { formatCurrency, filterInStockProducts } from '@/features/sales-pos/pos/utils/formatters';
@@ -51,6 +52,7 @@ export default function POSPage() {
   const isWide = width > 700;
   const pos = usePOS();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [payLaterOpen, setPayLaterOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
@@ -135,6 +137,11 @@ export default function POSPage() {
     setCheckoutOpen(true);
   };
 
+  const handlePayLaterOpen = () => {
+    setCartOpen(false);
+    setPayLaterOpen(true);
+  };
+
   const cartPanel = (
     <CartPanel
       cart={pos.cart}
@@ -148,6 +155,7 @@ export default function POSPage() {
       isWalkingCustomer={pos.isWalkingCustomer}
       onClose={() => setCartOpen(false)}
       onCheckout={handleCheckoutOpen}
+      onPayLater={handlePayLaterOpen}
       onUpdateQuantity={pos.updateQuantity}
       onAddOneMore={(item) => {
         void (async () => {
@@ -339,6 +347,21 @@ export default function POSPage() {
         loading={pos.loading}
         branchId={pos.selectedBranchId}
         cart={pos.cart}
+      />
+
+      <PayLaterModal
+        visible={payLaterOpen}
+        onClose={() => setPayLaterOpen(false)}
+        customer={pos.customer}
+        cart={pos.cart}
+        branchId={pos.selectedBranchId}
+        orderSummary={pos.orderSummary}
+        onSuccess={() => {
+          setPayLaterOpen(false);
+          pos.clearCart();
+          pos.setPayments([]);
+          pos.clearCustomer();
+        }}
       />
 
       <SerialSelectModal

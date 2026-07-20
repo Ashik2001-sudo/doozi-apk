@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -157,8 +156,6 @@ export function SerialSelectModal({
     });
   };
 
-  const clearSelection = () => setSelected([]);
-
   const handleConfirm = () => {
     if (selected.length === 0) {
       Alert.alert('Select IMEI', 'Please select at least one IMEI/serial number');
@@ -258,26 +255,6 @@ export function SerialSelectModal({
             </TouchableOpacity>
           ) : null}
         </View>
-
-        {selected.length > 0 ? (
-          <View style={styles.chipsWrap}>
-            <View style={styles.chipsHeader}>
-              <Text style={styles.chipsTitle}>Selected IMEI</Text>
-              <TouchableOpacity onPress={clearSelection}>
-                <Text style={styles.clearText}>Clear all</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.chips}>
-              {selected.map((sn) => (
-                <Pressable key={sn} style={styles.chip} onPress={() => toggle(sn)}>
-                  <Hash color={colors.accentPrimary} size={11} />
-                  <Text style={styles.chipText}>{sn}</Text>
-                  <X color={colors.textMuted} size={12} />
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
 
         {!loading && filtered.length > 0 ? (
           <View style={styles.listActions}>
@@ -468,41 +445,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     fontWeight: '500',
-  },
-  chipsWrap: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    padding: 10,
-    backgroundColor: colors.accentSoft,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-  },
-  chipsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  chipsTitle: { color: colors.textSecondary, fontWeight: '700', fontSize: 12 },
-  clearText: { color: colors.accentPrimary, fontWeight: '700', fontSize: 12 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#fff',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-  },
-  chipText: {
-    color: colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: 'monospace',
   },
   listActions: {
     flexDirection: 'row',

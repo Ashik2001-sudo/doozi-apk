@@ -4,6 +4,7 @@ import { API_BASE_URL, authorizedFetch } from '@/lib/config';
 import { filterAccountsByUserBranchAccess } from '@/utils/account-branch-access.utils';
 import {
   AccountOption,
+  getOrderStatusFromItems,
   StatusFilter,
   WholesaleOrder,
   WholesaleStats,
@@ -132,11 +133,20 @@ export function useWholesaleOrders() {
     [accounts, branchId],
   );
 
+  const filteredOrders = useMemo(() => {
+    if (statusFilter && statusFilter !== 'all') {
+      return orders.filter(
+        (o) => getOrderStatusFromItems(o.items || [], o) === statusFilter,
+      );
+    }
+    return orders;
+  }, [orders, statusFilter]);
+
   const stats: WholesaleStats = useMemo(() => {
     let pendingItems = 0;
     let soldItems = 0;
     let loadedValue = 0;
-    for (const o of orders) {
+    for (const o of filteredOrders) {
       if (isToday(o.orderDate)) loadedValue += Number(o.grandTotal) || 0;
       for (const it of o.items || []) {
         const s = (it.status || 'pending').toLowerCase();
@@ -144,8 +154,8 @@ export function useWholesaleOrders() {
         else if (s === 'sold' || s === 'sold_out') soldItems += 1;
       }
     }
-    return { totalOrders: total || orders.length, pendingItems, soldItems, loadedValue };
-  }, [orders, total]);
+    return { totalOrders: total || filteredOrders.length, pendingItems, soldItems, loadedValue };
+  }, [filteredOrders, total]);
 
   const refresh = useCallback(() => fetchOrders(1, false), [fetchOrders]);
 
@@ -167,7 +177,7 @@ export function useWholesaleOrders() {
     setSearch,
     statusFilter,
     setStatusFilter,
-    orders,
+    orders: filteredOrders,
     setOrders,
     page,
     total,

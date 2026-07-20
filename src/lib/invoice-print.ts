@@ -686,7 +686,7 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
   const companyFallback = invoice.companyName?.trim() || '';
   const brandCenterHtml = (() => {
     if (logoSrc) {
-      return `<img class="brand-logo" src="${escapeHtml(logoSrc)}" alt="" crossorigin="anonymous" decoding="async" />${branchCenterHtml}`;
+      return `<img class="brand-logo" src="${escapeHtml(logoSrc)}" alt="" decoding="async" />${branchCenterHtml}`;
     }
     if (companyFallback) {
       return `<div class="brand-name-fallback">${escapeHtml(companyFallback)}</div>${branchCenterHtml}`;

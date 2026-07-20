@@ -21,13 +21,10 @@ import {
   Hash,
   Crown,
   AlertCircle,
-  Banknote,
-  ArrowLeftRight,
-  Clock,
-  Receipt,
   Building2,
   CreditCard,
   Smartphone,
+  Banknote,
 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { ProductImage } from '@/components/ui/product-image';
@@ -311,16 +308,36 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
           </ScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-            <PaymentSummaryBar
-              grandTotal={props.orderSummary.grandTotal}
-              receive={modal.displayReceive}
-              change={modal.displayChange}
-              due={modal.displayDue}
-              advanceApplied={modal.advanceApplied}
-              paymentStatus={modal.paymentStatus}
-              payProgress={payProgress}
-              statusStyle={statusStyle}
-            />
+            <View style={styles.summaryBar}>
+              <View style={styles.summaryTop}>
+                <Text style={styles.summaryTotalLabel}>Grand Total</Text>
+                <Text style={styles.summaryTotalValue}>
+                  {formatCurrency(props.orderSummary.grandTotal)}
+                </Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${payProgress}%` }]} />
+              </View>
+              <View style={styles.summaryMetrics}>
+                <View style={styles.summaryMetric}>
+                  <Text style={styles.smLabel}>Received</Text>
+                  <Text style={[styles.smValue, { color: '#059669' }]}>
+                    {formatCurrency(modal.displayReceive)}
+                  </Text>
+                </View>
+                <View style={styles.summaryMetric}>
+                  <Text style={styles.smLabel}>Due</Text>
+                  <Text
+                    style={[
+                      styles.smValue,
+                      { color: modal.displayDue > 0 ? '#d97706' : colors.textPrimary },
+                    ]}
+                  >
+                    {formatCurrency(modal.displayDue)}
+                  </Text>
+                </View>
+              </View>
+            </View>
             <View style={styles.footerActions}>
               <Button title="Cancel" variant="secondary" onPress={props.onClose} />
               <View style={{ flex: 1 }}>
@@ -414,137 +431,6 @@ function AccountPickerIcon({ accountType, color }: { accountType?: string; color
   if (t === 'mobile_banking' || t.includes('mobile')) return <Smartphone color={color} size={18} />;
   if (t === 'bank_transfer' || t.includes('bank')) return <Building2 color={color} size={18} />;
   return <CreditCard color={color} size={18} />;
-}
-
-function PaymentSummaryBar({
-  grandTotal,
-  receive,
-  change,
-  due,
-  advanceApplied,
-  paymentStatus,
-  payProgress,
-  statusStyle,
-}: {
-  grandTotal: number;
-  receive: number;
-  change: number;
-  due: number;
-  advanceApplied: number;
-  paymentStatus: string;
-  payProgress: number;
-  statusStyle: { bg: string; text: string; border: string };
-}) {
-  return (
-    <View style={[styles.summaryBar, shadows.soft]}>
-      <LinearGradient colors={['#312e81', '#4f46e5', '#6366f1']} style={styles.summaryHero}>
-        <View style={styles.summaryHeroTop}>
-          <View style={styles.summaryHeroLabelRow}>
-            <Receipt color="rgba(255,255,255,0.7)" size={14} />
-            <Text style={styles.summaryHeroLabel}>Grand Total</Text>
-          </View>
-          <View
-            style={[
-              styles.summaryStatusPill,
-              { backgroundColor: statusStyle.bg, borderColor: statusStyle.border },
-            ]}
-          >
-            <Text style={[styles.summaryStatusText, { color: statusStyle.text }]}>
-              {paymentStatus}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.summaryAmountRow}>
-          <Text style={styles.summaryHeroValue}>{formatCurrency(grandTotal)}</Text>
-          <Text style={styles.summaryProgressHint}>
-            {Math.round(payProgress)}% collected
-          </Text>
-        </View>
-        <View style={styles.summaryProgressTrack}>
-          <View style={[styles.summaryProgressFill, { width: `${payProgress}%` }]} />
-        </View>
-      </LinearGradient>
-
-      {advanceApplied > 0 ? (
-        <View style={styles.advanceAppliedChip}>
-          <Wallet color="#059669" size={13} />
-          <Text style={styles.advanceAppliedText}>
-            Advance applied: {formatCurrency(advanceApplied)}
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={styles.metricsRow}>
-        <SummaryMetric
-          icon={Banknote}
-          label="Received"
-          value={formatCurrency(receive)}
-          tone="green"
-          emphasized={receive > 0}
-        />
-        <View style={styles.metricDivider} />
-        <SummaryMetric
-          icon={ArrowLeftRight}
-          label="Change"
-          value={formatCurrency(change)}
-          tone="sky"
-          emphasized={change > 0}
-        />
-        <View style={styles.metricDivider} />
-        <SummaryMetric
-          icon={Clock}
-          label="Due"
-          value={formatCurrency(due)}
-          tone="amber"
-          emphasized={due > 0}
-          alert={due > 0}
-        />
-      </View>
-    </View>
-  );
-}
-
-function SummaryMetric({
-  icon: Icon,
-  label,
-  value,
-  tone,
-  emphasized,
-  alert,
-}: {
-  icon: React.ComponentType<{ color?: string; size?: number }>;
-  label: string;
-  value: string;
-  tone: 'green' | 'sky' | 'amber';
-  emphasized?: boolean;
-  alert?: boolean;
-}) {
-  const palette = {
-    green: { icon: '#059669', bg: '#ecfdf5', border: '#a7f3d0', text: '#047857' },
-    sky: { icon: '#0284c7', bg: '#f0f9ff', border: '#bae6fd', text: '#0369a1' },
-    amber: { icon: '#d97706', bg: '#fffbeb', border: '#fde68a', text: '#b45309' },
-  };
-  const p = palette[tone];
-
-  return (
-    <View
-      style={[
-        styles.metricCell,
-        emphasized && { backgroundColor: p.bg, borderColor: p.border },
-        alert && styles.metricCellAlert,
-      ]}
-    >
-      <View style={styles.metricTopRow}>
-        <View style={[styles.metricIconWrap, { backgroundColor: emphasized ? '#fff' : p.bg }]}>
-          <Icon color={p.icon} size={12} />
-        </View>
-        <Text style={styles.metricLabel}>{label}</Text>
-      </View>
-      <Text style={[styles.metricValue, { color: emphasized ? p.text : colors.textPrimary }]}>
-        {value}
-      </Text>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -739,128 +625,48 @@ const styles = StyleSheet.create({
   },
   noteInput: { minHeight: 72, textAlignVertical: 'top' },
   summaryBar: {
-    backgroundColor: '#fff',
-    borderRadius: radius.lg,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderLight,
-    overflow: 'hidden',
+    borderColor: colors.borderAccent,
+    padding: 10,
     marginBottom: 10,
   },
-  summaryHero: {
-    paddingHorizontal: 14,
-    paddingTop: 9,
-    paddingBottom: 10,
-  },
-  summaryHeroTop: {
+  summaryTop: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
+    marginBottom: 6,
   },
-  summaryHeroLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  summaryHeroLabel: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  summaryStatusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  summaryStatusText: { fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
-  summaryHeroValue: {
-    color: '#fff',
-    fontSize: 22,
+  summaryTotalLabel: {
+    color: colors.accentPrimary,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: -0.6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  summaryAmountRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginBottom: 7,
-  },
-  summaryProgressTrack: {
+  summaryTotalValue: { color: colors.accentPrimary, fontWeight: '800', fontSize: 18 },
+  progressTrack: {
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#e0e7ff',
     borderRadius: radius.full,
     overflow: 'hidden',
+    marginBottom: 8,
   },
-  summaryProgressFill: {
+  progressFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: colors.accentPrimary,
     borderRadius: radius.full,
   },
-  summaryProgressHint: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 9,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  advanceAppliedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginHorizontal: 10,
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    backgroundColor: '#ecfdf5',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-  },
-  advanceAppliedText: { color: '#059669', fontSize: 11, fontWeight: '700' },
-  metricsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    padding: 5,
-    gap: 3,
-  },
-  metricDivider: {
-    width: 1,
-    backgroundColor: colors.borderLight,
-    marginVertical: 5,
-  },
-  metricCell: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 3,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  metricCellAlert: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
-  },
-  metricIconWrap: {
-    width: 21,
-    height: 21,
-    borderRadius: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricTopRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
-  metricLabel: {
+  summaryMetrics: { flexDirection: 'row' },
+  summaryMetric: { flex: 1, alignItems: 'center' },
+  smLabel: {
     color: colors.textMuted,
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
-  metricValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-    textAlign: 'center',
-  },
+  smValue: { fontWeight: '800', fontSize: 12, marginTop: 2 },
   footer: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,

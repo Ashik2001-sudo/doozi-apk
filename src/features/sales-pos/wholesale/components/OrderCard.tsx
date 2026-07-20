@@ -10,7 +10,16 @@ import {
 } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { styles } from '../styles';
-import { itemStatusColor, money, variantLabel, WholesaleItem, WholesaleOrder } from '../types';
+import {
+  fulfillmentStatusColor,
+  getFulfillmentStatusLabel,
+  getOrderStatusFromItems,
+  itemStatusColor,
+  money,
+  variantLabel,
+  WholesaleItem,
+  WholesaleOrder,
+} from '../types';
 
 type Props = {
   order: WholesaleOrder;
@@ -23,8 +32,10 @@ type Props = {
 
 function statusBorderColor(order: WholesaleOrder) {
   const items = order.items || [];
-  if (items.length && items.every((i) => (i.status || '').toLowerCase() === 'sold' || (i.status || '').toLowerCase() === 'sold_out'))
+  // Same as seller-admin: all sold_out → green; any returned → blue; else amber
+  if (items.length && items.every((i) => (i.status || '').toLowerCase() === 'sold_out')) {
     return colors.statusSuccess;
+  }
   if (items.some((i) => (i.status || '').toLowerCase() === 'returned')) return '#2563eb';
   return colors.statusWarning;
 }
@@ -37,10 +48,14 @@ export const OrderCard = React.memo(function OrderCard({
   onSellOut,
   onReturn,
 }: Props) {
-  const pendingCount = (order.items || []).filter(
+  const items = order.items || [];
+  const pendingCount = items.filter(
     (i) => (i.status || 'pending').toLowerCase() === 'pending',
   ).length;
-  const itemCount = order.items?.length || 0;
+  const itemCount = items.length;
+  const fulfillmentStatus = getOrderStatusFromItems(items, order);
+  const statusLabel = getFulfillmentStatusLabel(fulfillmentStatus);
+  const statusColor = fulfillmentStatusColor(fulfillmentStatus);
 
   return (
     <View style={[styles.orderCard, { borderLeftColor: statusBorderColor(order) }]}>
@@ -49,9 +64,11 @@ export const OrderCard = React.memo(function OrderCard({
           <Package color={colors.accentPrimary} size={20} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.orderNo}>{order.orderNo}</Text>
+          <Text style={styles.orderNo} numberOfLines={1}>
+            {order.retailer?.name || order.retailerName || 'Retailer'}
+          </Text>
           <Text style={styles.orderMeta}>
-            {order.retailer?.name || order.retailerName || 'Retailer'} · {order.branch?.name || '—'}
+            {order.orderNo} · {order.branch?.name || '—'}
           </Text>
           <Text style={styles.orderMeta}>
             <Clock color={colors.textMuted} size={10} />{' '}
@@ -61,10 +78,8 @@ export const OrderCard = React.memo(function OrderCard({
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <Text style={styles.orderTotal}>{money(order.grandTotal)}</Text>
-          <View style={[styles.statusPill, { borderColor: `${itemStatusColor(order.orderStatus)}55` }]}>
-            <Text style={[styles.statusText, { color: itemStatusColor(order.orderStatus) }]}>
-              {order.orderStatus}
-            </Text>
+          <View style={[styles.statusPill, { borderColor: `${statusColor}55` }]}>
+            <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -91,7 +106,7 @@ export const OrderCard = React.memo(function OrderCard({
 
       {expanded ? (
         <View style={styles.itemsWrap}>
-          {(order.items || []).map((it) => {
+          {items.map((it) => {
             const st = (it.status || 'pending').toLowerCase();
             const color = itemStatusColor(st);
             const sold = st === 'sold' || st === 'sold_out';
