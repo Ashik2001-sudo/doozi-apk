@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Zap, Plus, Search, Package, PackageCheck, X } from 'lucide-react-native';
 import { InvoiceModal } from '@/features/sales-pos/pos/components/InvoiceModal';
@@ -27,12 +28,18 @@ const STATUS_FILTERS: { key: 'all' | 'pending' | 'assigned'; label: string }[] =
 
 export function QuickSellScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const page = useQuickSellPage();
+
+  const openOrderDetails = (saleOrderId: string) => {
+    router.push(`/admin/sales-pos/sales-history/${saleOrderId}` as never);
+  };
 
   const renderOrder = ({ item }: { item: QuickSellOrder }) => (
     <QuickSellOrderCard
       order={item}
       formatTaka={page.formatTaka}
+      onOpenDetails={openOrderDetails}
     />
   );
 

@@ -20,13 +20,12 @@ import {
   ArrowUpRight,
   BarChart3,
   Building2,
-  ChevronRight,
   CreditCard,
   DollarSign,
   Hash,
   List,
+  Receipt,
   ShoppingBag,
-  ShoppingCart,
   Tag,
   TrendingUp,
   Zap,
@@ -98,27 +97,11 @@ function KpiCardSkeleton() {
   );
 }
 
-function OrderRowSkeleton({ last }: { last?: boolean }) {
-  return (
-    <View style={[styles.orderRow, last && { borderBottomWidth: 0 }]}>
-      <Skeleton style={styles.orderDotSkel} />
-      <View style={{ flex: 1, gap: 6 }}>
-        <Skeleton style={styles.skelOrderInvoice} />
-        <Skeleton style={styles.skelOrderMeta} />
-        <Skeleton style={styles.skelOrderStatus} />
-      </View>
-      <View style={styles.orderRight}>
-        <Skeleton style={styles.skelOrderTotal} />
-      </View>
-    </View>
-  );
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const { user, tenant } = useAuth();
   const { branches, selectedBranchId, setSelectedBranchId } = useBranches();
-  const { saleStats, recentOrders, loading, error, refetch } = useDashboardStats(
+  const { saleStats, loading, error, refetch } = useDashboardStats(
     selectedBranchId || undefined,
   );
 
@@ -236,61 +219,21 @@ export default function DashboardPage() {
       <Animated.View entering={FadeInRight.delay(200).duration(500)} style={styles.quickWrap}>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => router.push('/admin/sales-pos/pos' as never)}
+          onPress={() => router.push('/admin/sales-pos/sales-history' as never)}
           style={shadows.glow}
         >
           <LinearGradient colors={['#6366f1', '#4f46e5']} style={styles.quickBtn}>
             <View style={styles.quickLeft}>
-              <ShoppingCart color="#fff" size={22} />
+              <Receipt color="#fff" size={22} />
               <View>
-                <Text style={styles.quickText}>Open POS</Text>
-                <Text style={styles.quickHint}>Start a new sale</Text>
+                <Text style={styles.quickText}>Open History</Text>
+                <Text style={styles.quickHint}>View sales & invoices</Text>
               </View>
             </View>
             <ArrowUpRight color="#fff" size={22} />
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
-
-      <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>Recent orders</Text>
-        <TouchableOpacity onPress={() => router.push('/admin/sales-pos/sales-history' as never)}>
-          <Text style={styles.seeAll}>See all</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.ordersCard, shadows.soft]}>
-        {initialLoading ? (
-          <>
-            <OrderRowSkeleton />
-            <OrderRowSkeleton />
-            <OrderRowSkeleton last />
-          </>
-        ) : recentOrders.length === 0 ? (
-          <Text style={styles.empty}>No recent orders yet</Text>
-        ) : (
-          recentOrders.map((order, i) => (
-            <TouchableOpacity
-              key={order.id}
-              style={[styles.orderRow, i === recentOrders.length - 1 && { borderBottomWidth: 0 }]}
-              onPress={() => router.push('/admin/sales-pos/sales-history' as never)}
-            >
-              <View style={styles.orderDot} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.orderInvoice}>{order.invoiceNo || order.orderNo}</Text>
-                <Text style={styles.orderMeta}>{order.customerName || 'Walk-in customer'}</Text>
-                <View style={styles.orderStatus}>
-                  <Text style={styles.orderStatusText}>{order.orderStatus || 'completed'}</Text>
-                </View>
-              </View>
-              <View style={styles.orderRight}>
-                <Text style={styles.orderTotal}>{fmt(order.grandTotal)}</Text>
-                <ChevronRight color={colors.textMuted} size={16} />
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
     </ScrollView>
   );
 }
@@ -447,57 +390,6 @@ const styles = StyleSheet.create({
   quickLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   quickText: { color: '#fff', fontWeight: '800', fontSize: 17 },
   quickHint: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
-  sectionHead: {
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-  seeAll: { color: colors.accentPrimary, fontWeight: '600', fontSize: 13 },
-  ordersCard: {
-    marginHorizontal: spacing.md,
-    backgroundColor: '#ffffff',
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    overflow: 'hidden',
-  },
-  empty: { color: colors.textMuted, padding: spacing.lg, textAlign: 'center' },
-  orderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    gap: 10,
-  },
-  orderDot: {
-    width: 10,
-    height: 42,
-    borderRadius: 5,
-    backgroundColor: '#e0e7ff',
-  },
-  orderInvoice: { color: colors.textPrimary, fontWeight: '800', fontSize: 14 },
-  orderMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  orderStatus: {
-    alignSelf: 'flex-start',
-    marginTop: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    backgroundColor: '#ecfdf5',
-  },
-  orderStatusText: {
-    color: '#059669',
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'capitalize',
-  },
-  orderRight: { alignItems: 'flex-end', gap: 8 },
-  orderTotal: { color: colors.accentPrimary, fontWeight: '800', fontSize: 14 },
   skelHero: {
     marginHorizontal: spacing.sm,
     marginTop: spacing.sm,
@@ -509,9 +401,4 @@ const styles = StyleSheet.create({
   skelLabel: { width: '55%', height: 10, marginTop: 2 },
   skelValue: { width: '70%', height: 18, marginTop: 8 },
   skelSub: { width: '40%', height: 9, marginTop: 8 },
-  orderDotSkel: { width: 10, height: 42, borderRadius: 5 },
-  skelOrderInvoice: { width: '45%', height: 12 },
-  skelOrderMeta: { width: '60%', height: 10 },
-  skelOrderStatus: { width: 64, height: 14, borderRadius: radius.full },
-  skelOrderTotal: { width: 58, height: 12 },
 });

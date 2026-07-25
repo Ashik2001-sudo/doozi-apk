@@ -10,14 +10,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckCircle, FileText, Printer, Send, Share2, X } from 'lucide-react-native';
+import { CheckCircle, FileText, Printer, Send, X } from 'lucide-react-native';
 import { API_BASE_URL, authorizedFetch } from '@/lib/config';
 import { fetchTenantInvoiceBranding } from '@/lib/fetch-tenant-branding';
 import {
-  buildInvoicePrintDocumentHtml,
-  invoicePayloadToPrintData,
+  buildInvoiceHtmlAsync,
   printInvoiceHtmlAsync,
-  shareInvoicePdf,
 } from '@/lib/invoice-print';
 import { InvoiceHtmlPreview } from '@/features/sales-pos/pos/components/InvoiceHtmlPreview';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
@@ -88,7 +86,8 @@ interface InvoiceModalProps {
 export function InvoiceModal({ visible, invoiceData, onClose }: InvoiceModalProps) {
   const insets = useSafeAreaInsets();
   const [sendingSms, setSendingSms] = useState(false);
-  const [busyAction, setBusyAction] = useState<'print' | 'share' | null>(null);
+  const [busyAction, setBusyAction] = useState<'print' | null>(null);
+  const [previewHtml, setPreviewHtml] = useState('');
   const [branding, setBranding] = useState<{
     adminLogoUrl?: string | null;
     companyName?: string | null;
@@ -119,10 +118,24 @@ export function InvoiceModal({ visible, invoiceData, onClose }: InvoiceModalProp
     };
   }, [invoiceData, branding]);
 
-  const previewHtml = useMemo(() => {
-    if (!mergedInvoiceData) return '';
-    return buildInvoicePrintDocumentHtml(invoicePayloadToPrintData(mergedInvoiceData));
-  }, [mergedInvoiceData]);
+  useEffect(() => {
+    if (!visible || !mergedInvoiceData) {
+      setPreviewHtml('');
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const html = await buildInvoiceHtmlAsync(mergedInvoiceData);
+        if (!cancelled) setPreviewHtml(html);
+      } catch {
+        if (!cancelled) setPreviewHtml('');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, mergedInvoiceData]);
 
   const canOfferSms =
     !!(invoiceData as InvoiceData | null)?.saleOrderId &&
@@ -132,17 +145,7 @@ export function InvoiceModal({ visible, invoiceData, onClose }: InvoiceModalProp
     if (!invoiceData) return;
     setBusyAction('print');
     try {
-      await printInvoiceHtmlAsync(invoiceData);
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!invoiceData) return;
-    setBusyAction('share');
-    try {
-      await shareInvoicePdf(invoiceData);
+      await printInvoiceHtmlAsync(mergedInvoiceData || invoiceData);
     } finally {
       setBusyAction(null);
     }
@@ -196,7 +199,13 @@ export function InvoiceModal({ visible, invoiceData, onClose }: InvoiceModalProp
         </LinearGradient>
 
         <View style={styles.previewWrap}>
-          <InvoiceHtmlPreview html={previewHtml} />
+          {previewHtml ? (
+            <InvoiceHtmlPreview html={previewHtml} />
+          ) : (
+            <View style={styles.previewLoading}>
+              <ActivityIndicator color={colors.accentPrimary} />
+            </View>
+          )}
         </View>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }, shadows.soft]}>
@@ -226,20 +235,6 @@ export function InvoiceModal({ visible, invoiceData, onClose }: InvoiceModalProp
               <Printer color={colors.accentPrimary} size={16} />
             )}
             <Text style={styles.secondaryText}>Print</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.secondaryBtn]}
-            onPress={() => void handleShare()}
-            disabled={actionDisabled}
-            activeOpacity={0.8}
-          >
-            {busyAction === 'share' ? (
-              <ActivityIndicator color={colors.accentPrimary} size="small" />
-            ) : (
-              <Share2 color={colors.accentPrimary} size={16} />
-            )}
-            <Text style={styles.secondaryText}>Share</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -295,6 +290,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: colors.borderLight,
+  },
+  previewLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     flexDirection: 'row',

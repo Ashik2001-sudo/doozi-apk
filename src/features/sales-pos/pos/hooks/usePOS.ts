@@ -53,6 +53,7 @@ export function usePOS() {
   const {
     products,
     loading: productsLoading,
+    loadingMore: productsLoadingMore,
     error: productsError,
     hasMore,
     loadMore,
@@ -346,6 +347,7 @@ export function usePOS() {
     setSearchTerm,
     products,
     productsLoading,
+    productsLoadingMore,
     productsError,
     hasMore,
     loadMore,

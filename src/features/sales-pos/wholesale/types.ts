@@ -35,6 +35,9 @@ export type WholesaleItem = {
   serialNumbers?: string[];
   status?: string;
   saleOrderId?: string | null;
+  createdAt?: string;
+  soldOutAt?: string | null;
+  returnedAt?: string | null;
   product?: { id: string; name: string };
   variant?: {
     id: string;
@@ -55,6 +58,7 @@ export type WholesaleOrder = {
   retailer?: WholesaleRetailer | null;
   retailerName?: string | null;
   branch?: { id: string; name: string } | null;
+  assignedEmployee?: { id: string; fullName?: string; employeeId?: string } | null;
   items: WholesaleItem[];
 };
 
@@ -104,6 +108,40 @@ export type WholesaleStats = {
 
 export function money(n: number) {
   return `৳${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+/** Seller-admin style date (en-BD). */
+export function formatWholesaleDate(s?: string | null) {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString('en-BD', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** Seller-admin style time — e.g. 3:45 PM */
+export function formatWholesaleTime(s?: string | null) {
+  if (!s) return '—';
+  return new Date(s).toLocaleTimeString('en-BD', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+export function formatWholesaleDateTime(s?: string | null) {
+  if (!s) return '—';
+  return `${formatWholesaleDate(s)} · ${formatWholesaleTime(s)}`;
+}
+
+/** In-time base: item.createdAt || order.orderDate (same as seller-admin). */
+export function getWholesaleInTimeBase(item: WholesaleItem, orderDate?: string | null) {
+  return item.createdAt || orderDate || null;
+}
+
+export function getWholesaleSellOutAt(item: WholesaleItem) {
+  return item.soldOutAt || item.returnedAt || null;
 }
 
 export function generateWholesaleOrderNo() {

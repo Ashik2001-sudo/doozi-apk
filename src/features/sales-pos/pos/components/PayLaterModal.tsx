@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertCircle, Clock3, Hash, Package, Phone, User, X } from 'lucide-react-native';
 import { API_BASE_URL, authorizedFetch, getUserData } from '@/lib/config';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { formatCurrency } from '../utils/formatters';
 import type { CartItem, OrderSummary, POSCustomer } from '../types/pos.types';
@@ -120,7 +121,7 @@ export function PayLaterModal({
       animationType="slide"
       onRequestClose={saving ? undefined : onClose}
     >
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <KeyboardAware style={[styles.root, { paddingTop: insets.top }]}>
         <LinearGradient
           colors={['#92400e', '#d97706', '#f59e0b']}
           start={{ x: 0, y: 0 }}
@@ -247,7 +248,7 @@ export function PayLaterModal({
             <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Pay Later'}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAware>
     </Modal>
   );
 }

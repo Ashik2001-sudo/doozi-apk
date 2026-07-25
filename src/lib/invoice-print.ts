@@ -9,6 +9,8 @@ import {
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Alert, Platform } from 'react-native';
+import bwipjs from 'bwip-js';
+import QRCode from 'qrcode';
 
 export interface InvoiceItemPrint {
   productName: string;
@@ -83,6 +85,87 @@ export interface InvoicePrintData {
   companyName?: string | null;
   /** Store URL encoded in invoice QR (custom domain when published, else seller-admin). */
   storeQrUrl?: string | null;
+  /** Pre-rendered CODE128 barcode as data URL (PNG/SVG) — required for expo-print WebView. */
+  barcodeDataUrl?: string | null;
+  /** Pre-rendered store QR as data URL (PNG) — required for expo-print WebView. */
+  qrDataUrl?: string | null;
+}
+
+/** Generate barcode + QR images so print/PDF does not rely on CDN scripts. */
+async function attachInvoiceCodeImages(invoice: InvoicePrintData): Promise<InvoicePrintData> {
+  const code = String(invoice.invoiceNo || invoice.orderNo || '').trim();
+  const storeQrUrl = invoice.storeQrUrl?.trim() || '';
+
+  let barcodeDataUrl = invoice.barcodeDataUrl ?? null;
+  let qrDataUrl = invoice.qrDataUrl ?? null;
+
+  if (!barcodeDataUrl && code) {
+    try {
+      const png = await new Promise<Uint8Array>((resolve, reject) => {
+        // bwip-js ships toBuffer at runtime; @types/bwip-js often omits it.
+        (bwipjs as unknown as {
+          toBuffer: (
+            opts: Record<string, unknown>,
+            cb: (err: string | Error | undefined, buf?: Uint8Array) => void,
+          ) => void;
+        }).toBuffer(
+          {
+            bcid: 'code128',
+            text: code,
+            scale: 3,
+            height: 14,
+            includetext: false,
+            paddingwidth: 0,
+            paddingheight: 0,
+          },
+          (err, buf) => {
+            if (err || !buf) reject(err instanceof Error ? err : new Error(String(err || 'barcode failed')));
+            else resolve(buf);
+          },
+        );
+      });
+      const base64 = (() => {
+        if (typeof Buffer !== 'undefined') {
+          return Buffer.from(png).toString('base64');
+        }
+        let binary = '';
+        const chunk = 0x8000;
+        for (let i = 0; i < png.length; i += chunk) {
+          binary += String.fromCharCode(...png.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+      })();
+      barcodeDataUrl = `data:image/png;base64,${base64}`;
+    } catch {
+      try {
+        const svg = bwipjs.toSVG({
+          bcid: 'code128',
+          text: code,
+          scale: 2,
+          height: 12,
+          includetext: false,
+        });
+        barcodeDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      } catch {
+        barcodeDataUrl = null;
+      }
+    }
+  }
+
+  if (!qrDataUrl && storeQrUrl) {
+    try {
+      qrDataUrl = await QRCode.toDataURL(storeQrUrl, {
+        width: 192,
+        margin: 1,
+        color: { dark: '#111827', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      });
+    } catch {
+      qrDataUrl = null;
+    }
+  }
+
+  return { ...invoice, barcodeDataUrl, qrDataUrl };
 }
 
 function formatCurrencyBasic(amount: number): string {
@@ -694,11 +777,7 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
     return branchCenterHtml || '<div class="brand-name-fallback">INVOICE</div>';
   })();
 
-  const storeQrUrl =
-    invoice.storeQrUrl?.trim() ||
-    (typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : '');
+  const storeQrUrl = invoice.storeQrUrl?.trim() || '';
   let storeQrHost = '';
   if (storeQrUrl) {
     try {
@@ -708,12 +787,22 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
     }
   }
   const orderDateLabel = new Date(invoice.date).toLocaleString();
-  const qrBlockHtml = storeQrUrl
-    ? `<div class="qr-stack">
-  <div id="invoice-store-qr" class="qr-box" data-url="${escapeHtml(storeQrUrl)}"></div>
+  const barcodeCode = String(invoice.invoiceNo || invoice.orderNo || '').trim();
+  const barcodeImgHtml = invoice.barcodeDataUrl
+    ? `<img class="barcode" src="${invoice.barcodeDataUrl}" alt="Barcode" />`
+    : '';
+  const qrBlockHtml =
+    storeQrUrl && invoice.qrDataUrl
+      ? `<div class="qr-stack">
+  <div class="qr-box"><img src="${invoice.qrDataUrl}" alt="Store QR" width="96" height="96" /></div>
   ${storeQrHost ? `<div class="qr-host">${escapeHtml(storeQrHost)}</div>` : ''}
 </div>`
-    : '';
+      : storeQrUrl
+        ? `<div class="qr-stack">
+  <div class="qr-box" style="font-size:10px;color:#6b7280;text-align:center;padding:8px;">QR</div>
+  ${storeQrHost ? `<div class="qr-host">${escapeHtml(storeQrHost)}</div>` : ''}
+</div>`
+        : '';
   const headerRightHtml = `<div class="header-right">
   ${qrBlockHtml}
 </div>`;
@@ -926,6 +1015,8 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
     .barcode {
       display: inline-block;
       margin-bottom: 4px;
+      max-width: min(320px, 92vw);
+      height: auto;
     }
     .barcode-number {
       font-family: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
@@ -1381,12 +1472,9 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
         margin: 6px 0 0;
       }
       .barcode {
-        transform: scale(0.65);
-        transform-origin: center top;
-        margin-bottom: -18px;
-      }
-      .barcode svg {
         max-width: min(240px, 88vw);
+        height: auto;
+        margin-bottom: 2px;
       }
       .barcode-number {
         font-size: 11px;
@@ -1525,8 +1613,6 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
       margin-bottom: 4px;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -1611,12 +1697,8 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
     </div>
 
     <div class="barcode-block">
-      <svg
-        id="invoice-barcode"
-        class="barcode"
-        data-code="${escapeHtml(invoice.invoiceNo || invoice.orderNo)}"
-      ></svg>
-      <div class="barcode-number">${escapeHtml(invoice.invoiceNo || invoice.orderNo)}</div>
+      ${barcodeImgHtml}
+      <div class="barcode-number">${escapeHtml(barcodeCode)}</div>
     </div>
 
     <div>
@@ -1671,45 +1753,6 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
         : ''
     }
   </div>
-  <script>
-    window.addEventListener('load', function () {
-      try {
-        var el = document.getElementById('invoice-barcode');
-        if (el && window.JsBarcode) {
-          var code = el.getAttribute('data-code') || '';
-          if (code) {
-            window.JsBarcode(el, code, {
-              format: 'CODE128',
-              displayValue: false,
-              margin: 0,
-              height: 72,
-            });
-          }
-        }
-      } catch (e) {
-        // ignore barcode errors; still allow printing text
-      }
-      try {
-        var qrEl = document.getElementById('invoice-store-qr');
-        if (qrEl && window.QRCode) {
-          var storeUrl = qrEl.getAttribute('data-url') || '';
-          if (storeUrl) {
-            qrEl.innerHTML = '';
-            new window.QRCode(qrEl, {
-              text: storeUrl,
-              width: 96,
-              height: 96,
-              colorDark: '#111827',
-              colorLight: '#ffffff',
-              correctLevel: window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.M : 1,
-            });
-          }
-        }
-      } catch (e) {
-        // ignore QR errors
-      }
-    });
-  </script>
 </body>
 </html>`;
 }
@@ -1735,7 +1778,9 @@ export async function buildInvoiceHtmlAsync(invoice: unknown): Promise<string> {
     typeof invoice === 'object' && invoice !== null
       ? (invoice as TenantInvoiceBranding)
       : ({} as TenantInvoiceBranding);
-  const data = invoicePayloadToPrintData(mergeInvoiceWithBranding(base, branding));
+  const data = await attachInvoiceCodeImages(
+    invoicePayloadToPrintData(mergeInvoiceWithBranding(base, branding)),
+  );
   return buildInvoicePrintDocumentHtml(data);
 }
 
@@ -1790,14 +1835,14 @@ function printHtmlDocumentInBrowser(html: string): Promise<void> {
       }
     };
 
-    // Give barcode/QR scripts a moment to render before printing.
-    const schedule = () => setTimeout(triggerPrint, 450);
+    // Images are already embedded; print as soon as the document is ready.
+    const schedule = () => setTimeout(triggerPrint, 80);
     if (doc.readyState === 'complete') {
       schedule();
     } else {
       iframe.onload = schedule;
       // Fallback if onload never fires
-      setTimeout(schedule, 900);
+      setTimeout(schedule, 400);
     }
   });
 }

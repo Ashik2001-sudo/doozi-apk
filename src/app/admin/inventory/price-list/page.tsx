@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,8 +16,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   AlertCircle,
-  CheckCircle,
-  ChevronDown,
   DollarSign,
   Package,
   Pencil,
@@ -25,7 +23,6 @@ import {
   SlidersHorizontal,
   Tag,
   X,
-  XCircle,
 } from 'lucide-react-native';
 import { useBranches } from '@/hooks/branch/useBranches';
 import { API_BASE_URL, authorizedFetch } from '@/lib/config';
@@ -295,6 +292,12 @@ export default function PriceListPage() {
     }
   };
 
+  const openEdit = (item: PriceListRow) => {
+    if (!item.priceId) return;
+    setEditingRow(item);
+    setPriceInput(String(item.sellingPrice));
+  };
+
   const renderRow = ({ item }: { item: PriceListRow }) => {
     const isOut = item.stockQuantity === 0;
     const isLow =
@@ -302,50 +305,61 @@ export default function PriceListPage() {
       item.lowStockThreshold > 0 &&
       item.stockQuantity <= item.lowStockThreshold;
     const statusColor = isOut ? '#e11d48' : isLow ? '#d97706' : '#059669';
-    const StatusIcon = isOut ? XCircle : isLow ? AlertCircle : CheckCircle;
-    const statusLabel = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock';
+    const statusLabel = isOut ? 'Out of stock' : isLow ? 'Low stock' : 'In stock';
+
     return (
-      <View style={[styles.productCard, shadows.soft, { borderLeftColor: statusColor }]}>
-        <View style={styles.productHead}>
-          <ProductImage src={item.productImage} size={62} borderRadius={14} iconSize={24} />
-          <View style={styles.productInfo}>
-            <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
-            {item.variantDisplay ? (
-              <Text style={styles.variant} numberOfLines={1}>{item.variantDisplay}</Text>
+      <TouchableOpacity
+        style={[styles.productCard, shadows.soft]}
+        activeOpacity={item.priceId ? 0.9 : 1}
+        onPress={() => openEdit(item)}
+        disabled={!item.priceId}
+      >
+        <View style={[styles.productAccent, { backgroundColor: statusColor }]} />
+        <View style={styles.productInner}>
+          <View style={styles.productHead}>
+            <ProductImage src={item.productImage} size={64} borderRadius={14} iconSize={24} />
+            <View style={styles.productInfo}>
+              <Text style={styles.productName} numberOfLines={2}>
+                {item.productName}
+              </Text>
+              {item.variantDisplay ? (
+                <Text style={styles.variant} numberOfLines={1}>
+                  {item.variantDisplay}
+                </Text>
+              ) : null}
+              <View style={styles.metaChips}>
+                {item.sku ? (
+                  <Text style={styles.skuChip} numberOfLines={1}>
+                    {item.sku}
+                  </Text>
+                ) : null}
+                <View style={[styles.stockPill, { backgroundColor: `${statusColor}14` }]}>
+                  <Text style={[styles.stockText, { color: statusColor }]}>
+                    {statusLabel} · {item.stockQuantity}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            {item.priceId ? (
+              <View style={styles.editBtn}>
+                <Pencil color={colors.accentPrimary} size={15} />
+              </View>
             ) : null}
-            <Text style={styles.sku} numberOfLines={1}>SKU: {item.sku || '—'}</Text>
           </View>
-          {item.priceId ? (
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={() => {
-                setEditingRow(item);
-                setPriceInput(String(item.sellingPrice));
-              }}
-            >
-              <Pencil color={colors.accentPrimary} size={16} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-        <View style={styles.stockRow}>
-          <View style={[styles.stockPill, { backgroundColor: `${statusColor}12`, borderColor: `${statusColor}45` }]}>
-            <StatusIcon color={statusColor} size={14} />
-            <Text style={[styles.stockText, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
-          <Text style={styles.qty}>Qty: {item.stockQuantity}</Text>
-          <Text style={styles.productType}>{item.productType || 'single'}</Text>
-        </View>
-        <View style={styles.priceRow}>
-          <View style={styles.purchaseBox}>
-            <Text style={styles.priceLabel}>Purchase</Text>
-            <Text style={styles.purchaseValue}>{money(item.purchasePrice)}</Text>
-          </View>
-          <View style={styles.sellingBox}>
-            <Text style={[styles.priceLabel, { color: colors.accentPrimary }]}>Selling</Text>
-            <Text style={styles.sellingValue}>{money(item.sellingPrice)}</Text>
+
+          <View style={styles.priceRow}>
+            <View style={styles.priceCell}>
+              <Text style={styles.priceLabel}>Purchase</Text>
+              <Text style={styles.purchaseValue}>{money(item.purchasePrice)}</Text>
+            </View>
+            <View style={styles.priceDivider} />
+            <View style={styles.priceCell}>
+              <Text style={[styles.priceLabel, { color: colors.accentPrimary }]}>Selling</Text>
+              <Text style={styles.sellingValue}>{money(item.sellingPrice)}</Text>
+            </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -382,6 +396,26 @@ export default function PriceListPage() {
                 <Text style={styles.heroSub}>View and edit purchase & selling prices</Text>
               </View>
             </LinearGradient>
+
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <View style={[styles.statDot, { backgroundColor: colors.accentPrimary }]} />
+                <Text style={styles.statValue}>{stats.totalItems}</Text>
+                <Text style={styles.statLabel}>Items</Text>
+              </View>
+              <View style={styles.statCard}>
+                <View style={[styles.statDot, { backgroundColor: '#0891b2' }]} />
+                <Text style={styles.statValue}>{stats.totalProducts}</Text>
+                <Text style={styles.statLabel}>Products</Text>
+              </View>
+              <View style={styles.statCard}>
+                <View style={[styles.statDot, { backgroundColor: colors.statusSuccess }]} />
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {money(stats.totalSellingValue)}
+                </Text>
+                <Text style={styles.statLabel}>Selling</Text>
+              </View>
+            </View>
 
             <ScrollView
               horizontal
@@ -602,6 +636,25 @@ const styles = StyleSheet.create({
   heroIcon: { width: 48, height: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   heroTitle: { color: '#ffffff', fontSize: 22, fontWeight: '900' },
   heroSub: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 3 },
+  statsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.sm, marginBottom: 4 },
+  statCard: {
+    flex: 1,
+    borderRadius: radius.md,
+    padding: 11,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  statDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 7 },
+  statValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   branchRow: { paddingHorizontal: spacing.sm, paddingVertical: 5, gap: 7 },
   branchChip: { height: 34, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 11, backgroundColor: '#ffffff', borderWidth: 1, borderColor: colors.borderLight },
   branchChipOn: { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
@@ -617,24 +670,83 @@ const styles = StyleSheet.create({
   statusFilterOn: { backgroundColor: colors.accentSoft, borderColor: colors.accentPrimary },
   statusFilterText: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
   statusFilterTextOn: { color: colors.accentPrimary },
-  productCard: { marginHorizontal: spacing.sm, marginBottom: 10, padding: 13, backgroundColor: '#ffffff', borderRadius: radius.lg, borderWidth: 1, borderLeftWidth: 4, borderColor: colors.borderLight },
-  productHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
-  productInfo: { flex: 1, minWidth: 0 },
-  productName: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', lineHeight: 20 },
-  variant: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
-  sku: { color: colors.accentPrimary, fontSize: 10, fontWeight: '700', marginTop: 5, fontFamily: 'monospace' },
-  editBtn: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.borderAccent },
-  stockRow: { marginTop: 11, paddingVertical: 8, paddingHorizontal: 9, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgTertiary },
-  stockPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  productCard: {
+    marginHorizontal: spacing.sm,
+    marginBottom: 10,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  productAccent: { width: 4 },
+  productInner: { flex: 1, padding: 14, gap: 12 },
+  productHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  productInfo: { flex: 1, minWidth: 0, gap: 4 },
+  productName: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+    letterSpacing: -0.2,
+  },
+  variant: { color: colors.textMuted, fontSize: 12, fontWeight: '500' },
+  metaChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  skuChip: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: colors.bgTertiary,
+    overflow: 'hidden',
+    maxWidth: '55%',
+  },
+  stockPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7 },
   stockText: { fontSize: 10, fontWeight: '800' },
-  qty: { color: colors.accentPrimary, fontSize: 11, fontWeight: '800' },
-  productType: { marginLeft: 'auto', color: colors.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
-  priceRow: { marginTop: 10, flexDirection: 'row', gap: 9 },
-  purchaseBox: { flex: 1, padding: 10, borderRadius: 11, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: colors.borderLight },
-  sellingBox: { flex: 1, padding: 10, borderRadius: 11, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.borderAccent },
-  priceLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '600' },
-  purchaseValue: { color: colors.textPrimary, fontSize: 14, fontWeight: '800', marginTop: 3 },
-  sellingValue: { color: colors.accentPrimary, fontSize: 16, fontWeight: '900', marginTop: 2 },
+  editBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.bgTertiary,
+  },
+  priceCell: { flex: 1 },
+  priceDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: 12,
+  },
+  priceLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  purchaseValue: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 3 },
+  sellingValue: { color: colors.accentPrimary, fontSize: 16, fontWeight: '900', marginTop: 3 },
   errorBox: { marginHorizontal: spacing.sm, marginBottom: 10, padding: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
   errorText: { flex: 1, color: colors.statusError, fontSize: 12 },
   retryText: { color: colors.statusError, fontWeight: '800', fontSize: 12 },

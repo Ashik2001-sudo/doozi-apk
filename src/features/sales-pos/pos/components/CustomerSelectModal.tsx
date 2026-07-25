@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, User, Phone, Plus, X } from 'lucide-react-native';
 import { API_BASE_URL, authorizedFetch } from '@/lib/config';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { POSCustomer } from '@/features/sales-pos/pos/types/pos.types';
 import { resolveCustomerOnPhoneEnter } from '@/features/sales-pos/pos/utils/customerPhoneEnter';
 import { colors, radius, spacing } from '@/theme/tokens';
@@ -93,7 +94,7 @@ export function CustomerSelectModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+      <KeyboardAware style={[styles.root, { paddingTop: insets.top + 8 }]}>
         <LinearGradient colors={['#6366f1', '#4f46e5']} style={styles.header}>
           <Text style={styles.headerTitle}>Select Customer</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -179,7 +180,7 @@ export function CustomerSelectModal({
             }}
           />
         )}
-      </View>
+      </KeyboardAware>
     </Modal>
   );
 }

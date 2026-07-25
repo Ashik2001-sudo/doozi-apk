@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -6,11 +6,10 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pencil } from 'lucide-react-native';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { CartItem } from '@/features/sales-pos/pos/types/pos.types';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 
@@ -29,6 +28,21 @@ export function EditUnitPriceModal({
   onClose,
   onSave,
 }: EditUnitPriceModalProps) {
+  const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!item) return;
+    const t = setTimeout(() => {
+      inputRef.current?.focus();
+      const len = priceInput.length;
+      // Keep caret at end — do not select the whole price.
+      inputRef.current?.setNativeProps({ selection: { start: len, end: len } });
+    }, 50);
+    return () => clearTimeout(t);
+    // Only when modal opens for an item
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id]);
+
   if (!item) return null;
 
   const parsed = parseFloat(priceInput.replace(/,/g, ''));
@@ -36,10 +50,7 @@ export function EditUnitPriceModal({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAware style={styles.overlay}>
         <View style={[styles.card, shadows.soft]}>
           <View style={styles.iconWrap}>
             <Pencil color={colors.accentPrimary} size={24} />
@@ -57,14 +68,14 @@ export function EditUnitPriceModal({
           <Text style={styles.label}>Unit price</Text>
           <View style={styles.inputWrap}>
             <TextInput
+              ref={inputRef}
               style={styles.input}
               value={priceInput}
               onChangeText={(value) => onPriceInputChange(value.replace(/[^0-9.,]/g, ''))}
               keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={colors.textMuted}
-              autoFocus
-              selectTextOnFocus
+              selectTextOnFocus={false}
             />
           </View>
 
@@ -84,7 +95,7 @@ export function EditUnitPriceModal({
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAware>
     </Modal>
   );
 }

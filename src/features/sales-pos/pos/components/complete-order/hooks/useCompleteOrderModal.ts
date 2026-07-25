@@ -90,6 +90,7 @@ export function useCompleteOrderModal(props: CompleteOrderModalProps) {
       const isEmployee = userRole === 'employee';
       const isAdminUser = !isEmployee;
       setIsAdmin(isAdminUser);
+      // Same as seller-admin logic (field hidden in mobile UI).
       if (isEmployee && userData?.name) {
         setResponsiblePerson(userData.name);
       } else if (isAdminUser) {
@@ -98,10 +99,6 @@ export function useCompleteOrderModal(props: CompleteOrderModalProps) {
       setPaymentDate(getTodayLocalDate());
     }
   }, [visible]);
-
-  useEffect(() => {
-    if (visible && isAdmin) void fetchEmployees();
-  }, [visible, isAdmin, fetchEmployees]);
 
   useEffect(() => {
     if (visible) void fetchTcItems();

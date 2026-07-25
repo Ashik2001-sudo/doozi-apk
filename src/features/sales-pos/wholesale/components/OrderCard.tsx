@@ -1,38 +1,25 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import {
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Package,
-  RotateCcw,
-  ShoppingCart,
-} from 'lucide-react-native';
-import { colors } from '@/theme/tokens';
+import { ChevronRight, Clock, Package } from 'lucide-react-native';
+import { colors, shadows } from '@/theme/tokens';
 import { styles } from '../styles';
 import {
   fulfillmentStatusColor,
+  formatWholesaleDate,
+  formatWholesaleTime,
   getFulfillmentStatusLabel,
   getOrderStatusFromItems,
-  itemStatusColor,
   money,
-  variantLabel,
-  WholesaleItem,
   WholesaleOrder,
 } from '../types';
 
 type Props = {
   order: WholesaleOrder;
-  expanded: boolean;
-  onToggle: () => void;
-  onOpenSale: (saleOrderId: string) => void;
-  onSellOut: (order: WholesaleOrder, item: WholesaleItem) => void;
-  onReturn: (order: WholesaleOrder, item: WholesaleItem) => void;
+  onPress: () => void;
 };
 
-function statusBorderColor(order: WholesaleOrder) {
+function accentColor(order: WholesaleOrder) {
   const items = order.items || [];
-  // Same as seller-admin: all sold_out → green; any returned → blue; else amber
   if (items.length && items.every((i) => (i.status || '').toLowerCase() === 'sold_out')) {
     return colors.statusSuccess;
   }
@@ -40,136 +27,92 @@ function statusBorderColor(order: WholesaleOrder) {
   return colors.statusWarning;
 }
 
-export const OrderCard = React.memo(function OrderCard({
-  order,
-  expanded,
-  onToggle,
-  onOpenSale,
-  onSellOut,
-  onReturn,
-}: Props) {
+export const OrderCard = React.memo(function OrderCard({ order, onPress }: Props) {
   const items = order.items || [];
   const pendingCount = items.filter(
     (i) => (i.status || 'pending').toLowerCase() === 'pending',
   ).length;
-  const itemCount = items.length;
+  const soldCount = items.filter((i) => {
+    const s = (i.status || '').toLowerCase();
+    return s === 'sold' || s === 'sold_out';
+  }).length;
   const fulfillmentStatus = getOrderStatusFromItems(items, order);
   const statusLabel = getFulfillmentStatusLabel(fulfillmentStatus);
   const statusColor = fulfillmentStatusColor(fulfillmentStatus);
+  const accent = accentColor(order);
+  const retailer = order.retailer?.name || order.retailerName || 'Retailer';
+  const dateLabel = formatWholesaleDate(order.orderDate);
+  const timeLabel = formatWholesaleTime(order.orderDate);
 
   return (
-    <View style={[styles.orderCard, { borderLeftColor: statusBorderColor(order) }]}>
-      <TouchableOpacity style={styles.orderHead} onPress={onToggle} activeOpacity={0.8}>
-        <View style={styles.orderIcon}>
-          <Package color={colors.accentPrimary} size={20} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.orderNo} numberOfLines={1}>
-            {order.retailer?.name || order.retailerName || 'Retailer'}
-          </Text>
-          <Text style={styles.orderMeta}>
-            {order.orderNo} · {order.branch?.name || '—'}
-          </Text>
-          <Text style={styles.orderMeta}>
-            <Clock color={colors.textMuted} size={10} />{' '}
-            {new Date(order.orderDate).toLocaleDateString()}
-            {pendingCount ? ` · ${pendingCount} pending` : ''}
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end', gap: 6 }}>
-          <Text style={styles.orderTotal}>{money(order.grandTotal)}</Text>
-          <View style={[styles.statusPill, { borderColor: `${statusColor}55` }]}>
-            <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+    <TouchableOpacity
+      style={[styles.orderCard, shadows.soft]}
+      onPress={onPress}
+      activeOpacity={0.9}
+      accessibilityRole="button"
+      accessibilityLabel={`Open order ${order.orderNo}`}
+    >
+      <View style={[styles.orderAccent, { backgroundColor: accent }]} />
 
-      <View style={styles.summaryStrip}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{itemCount}</Text>
+      <View style={styles.orderCardBody}>
+        <View style={styles.orderHead}>
+          <View style={[styles.orderIcon, { backgroundColor: `${statusColor}14` }]}>
+            <Package color={statusColor} size={20} />
           </View>
-          <Text style={styles.orderMeta}>{itemCount === 1 ? 'item' : 'items'}</Text>
-        </View>
-        <TouchableOpacity
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-          onPress={onToggle}
-        >
-          <Text style={[styles.link, { marginTop: 0 }]}>{expanded ? 'Hide' : 'View'}</Text>
-          {expanded ? (
-            <ChevronDown color={colors.accentPrimary} size={16} />
-          ) : (
-            <ChevronRight color={colors.accentPrimary} size={16} />
-          )}
-        </TouchableOpacity>
-      </View>
 
-      {expanded ? (
-        <View style={styles.itemsWrap}>
-          {items.map((it) => {
-            const st = (it.status || 'pending').toLowerCase();
-            const color = itemStatusColor(st);
-            const sold = st === 'sold' || st === 'sold_out';
-            const pending = st === 'pending';
-            return (
-              <View key={it.id} style={styles.itemCard}>
-                <Text style={styles.itemName} numberOfLines={2}>
-                  {it.productName}
-                </Text>
-                <Text style={styles.itemMeta}>
-                  {it.sku}
-                  {variantLabel(it.variant) ? ` · ${variantLabel(it.variant)}` : ''}
-                </Text>
-                <Text style={styles.itemMeta}>
-                  Qty {it.quantity} × {money(it.unitPrice)} ={' '}
-                  {money(Number(it.totalPrice) || it.quantity * it.unitPrice)}
-                  {Number(it.paidAmount) > 0 ? ` · Paid ${money(Number(it.paidAmount))}` : ''}
-                </Text>
-                {it.serialNumbers?.length ? (
-                  <Text style={styles.serials} numberOfLines={2}>
-                    IMEI: {it.serialNumbers.join(', ')}
-                  </Text>
-                ) : null}
-                <View style={styles.itemFooter}>
-                  <View style={[styles.statusPill, { borderColor: `${color}55` }]}>
-                    <Text style={[styles.statusText, { color }]}>
-                      {sold ? 'Sold' : st === 'returned' ? 'Returned' : 'Pending'}
-                    </Text>
-                  </View>
-                  <View style={styles.itemActions}>
-                    {it.saleOrderId ? (
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.viewBtn]}
-                        onPress={() => onOpenSale(it.saleOrderId as string)}
-                      >
-                        <Text style={[styles.actionText, { color: colors.accentPrimary }]}>Sale</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {pending ? (
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => onSellOut(order, it)}
-                      >
-                        <ShoppingCart color="#ffffff" size={12} />
-                        <Text style={styles.actionText}>Sell</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {pending || sold ? (
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.returnBtn]}
-                        onPress={() => onReturn(order, it)}
-                      >
-                        <RotateCcw color="#ffffff" size={12} />
-                        <Text style={styles.actionText}>Return</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
+          <View style={styles.orderHeadMain}>
+            <View style={styles.orderTitleRow}>
+              <Text style={styles.orderNo} numberOfLines={1}>
+                {order.orderNo}
+              </Text>
+              <View
+                style={[
+                  styles.statusPill,
+                  {
+                    backgroundColor: `${statusColor}14`,
+                    borderColor: `${statusColor}35`,
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
               </View>
-            );
-          })}
+            </View>
+
+            <View style={styles.orderMetaRow}>
+              <Clock color={colors.textMuted} size={12} />
+              <Text style={styles.orderMeta}>
+                {dateLabel} · {timeLabel}
+              </Text>
+            </View>
+
+            <Text style={styles.orderRetailer} numberOfLines={1}>
+              {retailer}
+              {order.branch?.name ? ` · ${order.branch.name}` : ''}
+            </Text>
+          </View>
         </View>
-      ) : null}
-    </View>
+
+        <View style={styles.orderSummary}>
+          <View style={styles.orderSummaryLeft}>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{items.length}</Text>
+            </View>
+            <View>
+              <Text style={styles.orderTotal}>{money(order.grandTotal)}</Text>
+              <Text style={styles.orderProgressHint}>
+                {pendingCount > 0
+                  ? `${pendingCount} pending · ${soldCount} sold`
+                  : `${soldCount} sold`}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.openChip}>
+            <Text style={styles.openChipText}>Open</Text>
+            <ChevronRight color={colors.accentPrimary} size={15} strokeWidth={2.4} />
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 });

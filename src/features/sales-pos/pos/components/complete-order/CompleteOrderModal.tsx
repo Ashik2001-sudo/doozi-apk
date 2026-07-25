@@ -27,6 +27,7 @@ import {
   Banknote,
 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { ProductImage } from '@/components/ui/product-image';
 import { InvoiceModal } from '@/features/sales-pos/pos/components/InvoiceModal';
 import { formatCurrency } from '@/features/sales-pos/pos/utils/formatters';
@@ -59,7 +60,7 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
   return (
     <>
       <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose}>
-        <View style={[styles.root, { paddingTop: insets.top }]}>
+        <KeyboardAware style={[styles.root, { paddingTop: insets.top }]}>
           <LinearGradient colors={['#6366f1', '#4f46e5']} style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerLeft}>
@@ -107,7 +108,9 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
                   <View style={styles.customerMeta}>
                     <Phone color={colors.textMuted} size={12} />
                     <Text style={styles.customerPhone}>
-                      {props.customer?.phone ?? 'No phone'}
+                      {isWalkIn
+                        ? 'No phone on file · pay in full'
+                        : props.customer?.phone || 'No phone'}
                     </Text>
                   </View>
                   {props.customer && !isWalkIn ? (
@@ -232,43 +235,6 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
                 </View>
               </View>
 
-              <Text style={styles.fieldLabel}>
-                {modal.isAdmin ? 'Responsible (Optional)' : 'Responsible Person'}
-              </Text>
-              {modal.isAdmin ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                  <TouchableOpacity
-                    style={[styles.personChip, !modal.responsiblePerson && styles.personChipOn]}
-                    onPress={() => modal.setResponsiblePerson('')}
-                  >
-                    <Text style={styles.personChipText}>None</Text>
-                  </TouchableOpacity>
-                  {modal.employees.map((emp) => (
-                    <TouchableOpacity
-                      key={emp.id}
-                      style={[
-                        styles.personChip,
-                        modal.responsiblePerson === emp.fullName && styles.personChipOn,
-                      ]}
-                      onPress={() => modal.setResponsiblePerson(emp.fullName)}
-                    >
-                      <Text style={styles.personChipText}>{emp.fullName}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              ) : (
-                <Text style={styles.readonlyField}>{modal.responsiblePerson || '—'}</Text>
-              )}
-
-              <Text style={styles.fieldLabel}>Payment Date</Text>
-              <TextInput
-                style={styles.input}
-                value={modal.paymentDate}
-                onChangeText={modal.setPaymentDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textMuted}
-              />
-
               <Text style={styles.fieldLabel}>Note</Text>
               <TextInput
                 style={[styles.input, styles.noteInput]}
@@ -326,6 +292,12 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
                   </Text>
                 </View>
                 <View style={styles.summaryMetric}>
+                  <Text style={styles.smLabel}>Change</Text>
+                  <Text style={[styles.smValue, { color: '#0284c7' }]}>
+                    {formatCurrency(modal.displayChange)}
+                  </Text>
+                </View>
+                <View style={styles.summaryMetric}>
                   <Text style={styles.smLabel}>Due</Text>
                   <Text
                     style={[
@@ -349,7 +321,7 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAware>
       </Modal>
 
       <Modal

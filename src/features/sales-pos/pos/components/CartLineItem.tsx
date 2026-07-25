@@ -106,9 +106,6 @@ export function CartLineItem({
               {formatCurrency(effectiveUnit)}
               <Text style={styles.unitLabel}> each</Text>
             </Text>
-            <View style={styles.editPriceBtn}>
-              <Pencil color={colors.accentPrimary} size={12} />
-            </View>
           </TouchableOpacity>
         </View>
         <View style={styles.rightCol}>
@@ -205,16 +202,6 @@ const styles = StyleSheet.create({
   },
   unitPrice: { color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
   unitLabel: { color: colors.textMuted, fontWeight: '500' },
-  editPriceBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-  },
   rightCol: { alignItems: 'flex-end', gap: 8 },
   lineTotal: { color: colors.accentPrimary, fontWeight: '800', fontSize: 15 },
   rightActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -38,6 +38,10 @@ export interface POSProductVariant {
     discountType?: 'fixed' | 'percentage';
     discountValue?: number;
   };
+  /** Full IMEI rows when small; otherwise empty — picker fetches on demand. */
+  serialNumbers?: Array<string | { serialNumber?: string; status?: string }>;
+  /** Count of available serials for stock filtering without keeping huge arrays. */
+  availableSerialCount?: number;
 }
 
 export interface CartItem {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { styles } from './styles';
 import { useWholesaleOrders } from './hooks/useWholesaleOrders';
 import { useWholesaleCreate } from './hooks/useWholesaleCreate';
@@ -15,7 +14,6 @@ import { AccountPickerModal } from './components/AccountPickerModal';
 import { ReturnConfirmModal } from './components/ReturnConfirmModal';
 
 export function WholesaleScreen() {
-  const router = useRouter();
   const orders = useWholesaleOrders();
   const create = useWholesaleCreate(orders.branchId, orders.refresh);
   const actions = useWholesaleActions({
@@ -28,9 +26,6 @@ export function WholesaleScreen() {
       <WholesaleList
         orders={orders}
         onCreate={create.openModal}
-        onOpenSale={() => {
-          router.push('/admin/sales-pos/sales-history' as never);
-        }}
         onSellOut={actions.openSellOut}
         onReturn={actions.openReturn}
       />

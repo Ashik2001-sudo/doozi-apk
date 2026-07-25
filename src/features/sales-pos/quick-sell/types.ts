@@ -63,6 +63,30 @@ export type QuickSellStats = {
   todayAmount?: number;
 };
 
+export type QuickSellRevertPreview = {
+  canRevert: boolean;
+  blockReason: string | null;
+  purchaseId: string;
+  billNo: string | null;
+  grandTotal: number;
+  paidAmount: number;
+  dueAmount: number;
+  assignPaidAmount: number;
+  assignDueAmount: number;
+  hasExtraPayments: boolean;
+  extraPaidAmount: number;
+  paymentCount: number;
+  refundTotal: number;
+  refundByAccount: Array<{
+    accountId: string;
+    accountName: string;
+    amount: number;
+  }>;
+  hasPurchaseReturn: boolean;
+  purchaseReturnCount: number;
+  supplierName: string | null;
+};
+
 export type QuickSellPaymentRow = {
   id: string;
   accountId: string;

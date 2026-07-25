@@ -3,8 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   TouchableOpacity,
   Dimensions,
@@ -21,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { Eye, EyeOff, Sparkles } from 'lucide-react-native';
@@ -73,10 +72,7 @@ export default function LoginPage() {
         <Animated.View style={[styles.orb, styles.orbB, orbStyle]} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAware style={styles.keyboard}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scroll}
@@ -143,7 +139,7 @@ export default function LoginPage() {
             Same account as seller-admin web
           </Animated.Text>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAware>
     </View>
   );
 }

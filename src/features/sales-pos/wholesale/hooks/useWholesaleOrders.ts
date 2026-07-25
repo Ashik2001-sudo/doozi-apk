@@ -39,7 +39,6 @@ export function useWholesaleOrders() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
 
   const requestRef = useRef(0);
@@ -165,10 +164,6 @@ export function useWholesaleOrders() {
     }
   }, [page, totalPages, loadingMore, loading, fetchOrders]);
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }, []);
-
   return {
     branchList,
     branchId,
@@ -185,8 +180,6 @@ export function useWholesaleOrders() {
     loading,
     loadingMore,
     error,
-    expandedId,
-    toggleExpand,
     accounts,
     accountsForBranch,
     stats,

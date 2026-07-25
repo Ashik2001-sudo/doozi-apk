@@ -2,6 +2,7 @@
   "expo": {
     "name": "Seller Admin",
     "slug": "seller-admin-mobile",
+    "owner": "ashik2001",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -19,7 +20,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "package": "com.doozi.selleradmin",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -38,7 +43,17 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-camera"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Seller Admin to scan product barcodes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true
@@ -48,7 +63,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "seller-admin-mobile-local"
+        "projectId": "85b825b9-cf7a-4318-950d-826f461d334d"
       }
     }
   }

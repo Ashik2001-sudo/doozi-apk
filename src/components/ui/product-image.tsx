@@ -1,16 +1,8 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Image,
-  StyleSheet,
-  ActivityIndicator,
-  StyleProp,
-  ViewStyle,
-  ImageStyle,
-} from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, StyleProp, ViewStyle, ImageStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { Package } from 'lucide-react-native';
 import { getValidImageSrc } from '@/features/sales-pos/pos/utils/formatters';
-import { colors } from '@/theme/tokens';
 
 interface ProductImageProps {
   src: string | null | undefined;
@@ -23,7 +15,7 @@ interface ProductImageProps {
   iconSize?: number;
 }
 
-export function ProductImage({
+function ProductImageInner({
   src,
   size,
   fill = false,
@@ -33,18 +25,19 @@ export function ProductImage({
   iconSize,
 }: ProductImageProps) {
   const uri = getValidImageSrc(src);
-  const [loading, setLoading] = useState(!!uri);
-  const [error, setError] = useState(false);
-
   const resolvedIcon = iconSize ?? (size ? Math.round(size * 0.42) : 48);
 
-  const boxStyle: ViewStyle = fill
-    ? { ...StyleSheet.absoluteFill, borderRadius }
-    : size
-      ? { width: size, height: size, borderRadius }
-      : { flex: 1, borderRadius };
+  const boxStyle = useMemo<ViewStyle>(
+    () =>
+      fill
+        ? { ...StyleSheet.absoluteFill, borderRadius }
+        : size
+          ? { width: size, height: size, borderRadius }
+          : { flex: 1, borderRadius },
+    [borderRadius, fill, size],
+  );
 
-  if (!uri || error) {
+  if (!uri) {
     return (
       <View style={[styles.placeholder, boxStyle, style]}>
         <View
@@ -65,29 +58,24 @@ export function ProductImage({
 
   return (
     <View style={[styles.wrap, boxStyle, style]}>
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator color={colors.accentPrimary} size="small" />
-        </View>
-      ) : null}
       <Image
         source={{ uri }}
         style={[
           styles.image,
           fill ? StyleSheet.absoluteFill : size ? { width: size, height: size } : { flex: 1 },
           { borderRadius },
-          imageStyle,
+          imageStyle as any,
         ]}
-        resizeMode="cover"
-        onLoadEnd={() => setLoading(false)}
-        onError={() => {
-          setError(true);
-          setLoading(false);
-        }}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        recyclingKey={uri}
+        transition={0}
       />
     </View>
   );
 }
+
+export const ProductImage = React.memo(ProductImageInner);
 
 const styles = StyleSheet.create({
   wrap: {
@@ -109,12 +97,5 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-  },
-  loader: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(241,245,249,0.85)',
-    zIndex: 1,
   },
 });

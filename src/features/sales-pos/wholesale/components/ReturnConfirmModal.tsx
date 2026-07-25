@@ -11,22 +11,17 @@ import {
 import { Undo2 } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { styles } from '../styles';
-import { money } from '../types';
 import type { UseWholesaleActions } from '../hooks/useWholesaleActions';
 
 export function ReturnConfirmModal({ actions }: { actions: UseWholesaleActions }) {
   const { returnTarget, returnBusy, returnQty, setReturnQty, closeReturn, confirmReturn } = actions;
   const item = returnTarget?.item;
   const order = returnTarget?.order;
-  const totalAmount = Number(item?.totalPrice) || (item ? item.quantity * Number(item.unitPrice) : 0);
-  const paidAmount = Number(item?.paidAmount) || 0;
 
   const serials = Array.isArray(item?.serialNumbers) ? item?.serialNumbers ?? [] : [];
   const hasSerials = serials.length > 0;
-  const status = (item?.status || 'pending').toLowerCase();
-  const isSold = status === 'sold' || status === 'sold_out';
   const maxQty = item?.quantity ?? 0;
-  // Non-serial items with multiple units can be partially returned (like seller-admin)
+  // Non-serial pending items with multiple units can be partially returned
   const isVariableQty = !hasSerials && maxQty > 1;
   const returnQtyNum = returnQty.trim() === '' ? 0 : parseInt(returnQty, 10);
   const canPartial =
@@ -48,40 +43,10 @@ export function ReturnConfirmModal({ actions }: { actions: UseWholesaleActions }
               <Text
                 style={[styles.pickMeta, { textAlign: 'center', marginTop: 10, paddingHorizontal: 8 }]}
               >
-                {isSold
-                  ? hasSerials
-                    ? `Full qty (${item.quantity}) — stock & payments restored.`
-                    : isVariableQty
-                      ? `Partial or all ${maxQty} units — stock & payments restored.`
-                      : 'Stock & payments will be restored.'
-                  : isVariableQty
-                    ? `Not sold yet — removes from order (partial or all ${maxQty}).`
-                    : 'Not sold yet — removes from order. No stock/payment change.'}
+                {isVariableQty
+                  ? `Not sold yet — removes from order (partial or all ${maxQty}).`
+                  : 'Not sold yet — removes from order. No stock/payment change.'}
               </Text>
-
-              {isSold ? (
-                <View style={styles.returnAmountBox}>
-                  <Text
-                    style={{
-                      color: colors.statusWarning,
-                      fontSize: 10,
-                      fontWeight: '800',
-                      textTransform: 'uppercase',
-                      letterSpacing: 1,
-                    }}
-                  >
-                    Item Total
-                  </Text>
-                  <Text style={{ color: colors.statusWarning, fontSize: 28, fontWeight: '900', marginTop: 3 }}>
-                    {money(totalAmount)}
-                  </Text>
-                  {paidAmount > 0 ? (
-                    <Text style={{ color: colors.statusWarning, fontSize: 11, fontWeight: '600', marginTop: 4 }}>
-                      Paid {money(paidAmount)} — will be reversed
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
 
               {isVariableQty ? (
                 <View style={{ marginTop: 14 }}>

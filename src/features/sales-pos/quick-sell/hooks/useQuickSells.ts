@@ -5,6 +5,7 @@ import type {
   CreateQuickSellPayload,
   QuickSellOrder,
   QuickSellStats,
+  QuickSellRevertPreview,
 } from '../types';
 
 export function useQuickSells() {
@@ -135,6 +136,19 @@ export function useQuickSells() {
     }
   }, []);
 
+  const fetchRevertPreview = useCallback(async (id: string): Promise<QuickSellRevertPreview | null> => {
+    setError(null);
+    try {
+      const res = await authorizedFetch(`${API_BASE_URL}/quick-sells/${id}/revert-assign-preview`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Failed to load revert preview');
+      return (json.data ?? json) as QuickSellRevertPreview;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load revert preview');
+      return null;
+    }
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(total / limit) || 1);
   const hasMore = page < totalPages;
 
@@ -157,6 +171,7 @@ export function useQuickSells() {
     assignSupplier,
     returnQuickSell,
     revertQuickSellAssign,
+    fetchRevertPreview,
     setPage,
     goToPage,
   };

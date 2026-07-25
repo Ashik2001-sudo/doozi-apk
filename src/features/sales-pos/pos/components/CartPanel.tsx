@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
@@ -14,9 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ShoppingCart,
   X,
-  User,
   Phone,
-  Plus,
   Crown,
   Search,
   ShoppingCart as CartIcon,
@@ -51,7 +48,6 @@ interface CartPanelProps {
   onUpdateUnitPrice: (itemId: string, unitPrice: number) => void;
   onRemove: (itemId: string) => void;
   onRemoveSerial: (itemId: string, serial: string) => void;
-  onClearCart: () => void;
   onCustomerSelect: (customer: POSCustomer) => void;
   onClearCustomer: () => void;
   onSetPhoneNumber: (phone: string) => void;
@@ -75,7 +71,6 @@ export function CartPanel({
   onUpdateUnitPrice,
   onRemove,
   onRemoveSerial,
-  onClearCart,
   onCustomerSelect,
   onClearCustomer,
   onSetPhoneNumber,
@@ -106,13 +101,6 @@ export function CartPanel({
     closePriceEdit();
   };
 
-  const handleClear = () => {
-    Alert.alert('Clear cart', 'Remove all items from cart?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: onClearCart },
-    ]);
-  };
-
   /** Seller-admin: type phone → Enter → select match, or open Add Customer */
   const handlePhoneEnter = async () => {
     if (!phoneNumber.trim() || phoneEnterBusy) return;
@@ -132,83 +120,96 @@ export function CartPanel({
   };
 
   const customerHeader = (
-    <View style={[styles.customerCard, shadows.soft]}>
+    <View style={styles.customerCard}>
       <View style={styles.customerTop}>
-        <View style={styles.customerTitleRow}>
-          <User color={colors.accentPrimary} size={16} />
-          <Text style={styles.customerTitle}>Order Details</Text>
-        </View>
+        <Text style={styles.customerTitle}>Customer</Text>
         {!isWalkingCustomer && customer ? (
-          <TouchableOpacity onPress={onClearCustomer} hitSlop={8}>
-            <X color={colors.statusError} size={18} />
+          <TouchableOpacity onPress={onClearCustomer} hitSlop={10} style={styles.clearCustomerBtn}>
+            <Text style={styles.clearCustomerText}>Clear</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
-      <View style={styles.customerActions}>
-        <TouchableOpacity style={styles.customerPick} onPress={() => setSelectOpen(true)}>
-          <Phone color={colors.textMuted} size={16} />
-          <View style={{ flex: 1 }}>
-            {customerLoading ? (
-              <ActivityIndicator color={colors.accentPrimary} size="small" />
-            ) : (
-              <Text style={styles.customerPickText} numberOfLines={1}>
-                {customer
-                  ? `${customer.name}${customer.phone ? ` (${customer.phone})` : ''}`
-                  : 'Walk-in Customer'}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.addCustomerBtn}
-          onPress={() => {
-            setAddPhone(phoneNumber);
-            setAddOpen(true);
-          }}
-        >
-          <Plus color="#fff" size={20} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.phoneRow}>
-        <TextInput
-          style={styles.phoneInput}
-          placeholder="Type phone & press Enter…"
-          placeholderTextColor={colors.textMuted}
-          value={phoneNumber}
-          onChangeText={onSetPhoneNumber}
-          keyboardType="phone-pad"
-          returnKeyType="search"
-          blurOnSubmit={false}
-          maxLength={15}
-          editable={!phoneEnterBusy}
-          onSubmitEditing={() => void handlePhoneEnter()}
-        />
-        <TouchableOpacity
-          style={styles.phoneEnterBtn}
-          onPress={() => void handlePhoneEnter()}
-          disabled={phoneEnterBusy || !phoneNumber.trim()}
-        >
-          {phoneEnterBusy ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Search color="#fff" size={18} />
-          )}
-        </TouchableOpacity>
-      </View>
-
       {customer && !isWalkingCustomer ? (
-        <View style={styles.customerStats}>
-          {customer.vipStatus?.isVIP ? (
-            <View style={styles.vipBadge}>
-              <Crown color="#d97706" size={12} />
-              <Text style={styles.vipText}>VIP</Text>
+        <TouchableOpacity
+          style={styles.selectedCard}
+          onPress={() => setSelectOpen(true)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.selectedAvatar}>
+            <Text style={styles.selectedAvatarText}>
+              {(customer.name || 'C').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.selectedBody}>
+            <View style={styles.selectedNameRow}>
+              <Text style={styles.selectedName} numberOfLines={1}>
+                {customer.name}
+              </Text>
+              {customer.vipStatus?.isVIP ? (
+                <View style={styles.vipBadge}>
+                  <Crown color="#b45309" size={10} />
+                  <Text style={styles.vipText}>VIP</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-          <Text style={styles.statText}>
-            Orders: {customer.totalOrders ?? 0} · Spent: {formatCurrency(customer.totalSpent ?? 0)}
-          </Text>
+            <Text style={styles.selectedPhone} numberOfLines={1}>
+              {customer.phone || '—'}
+            </Text>
+            <Text style={styles.selectedMeta} numberOfLines={1}>
+              {customer.totalOrders ?? 0} orders
+              {'  ·  '}
+              {formatCurrency(customer.totalSpent ?? 0)} spent
+            </Text>
+          </View>
+          <Search color={colors.textMuted} size={16} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.walkInCard}>
+          <View style={styles.walkInTop}>
+            <Text style={styles.walkInBadge}>Walk-in</Text>
+            <TouchableOpacity onPress={() => setSelectOpen(true)} hitSlop={8}>
+              <Text style={styles.browseLink}>Browse</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.phoneField}>
+            <Phone color={colors.textMuted} size={16} />
+            <TextInput
+              style={styles.phoneFieldInput}
+              placeholder="Phone number"
+              placeholderTextColor="#94a3b8"
+              value={phoneNumber}
+              onChangeText={onSetPhoneNumber}
+              keyboardType="phone-pad"
+              returnKeyType="search"
+              blurOnSubmit={false}
+              maxLength={15}
+              editable={!phoneEnterBusy}
+              onSubmitEditing={() => void handlePhoneEnter()}
+            />
+            <TouchableOpacity
+              style={[
+                styles.phoneSearchBtn,
+                (!phoneNumber.trim() || phoneEnterBusy) && styles.phoneSearchBtnOff,
+              ]}
+              onPress={() => void handlePhoneEnter()}
+              disabled={phoneEnterBusy || !phoneNumber.trim()}
+              activeOpacity={0.85}
+            >
+              {phoneEnterBusy ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Search color="#fff" size={15} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {customerLoading ? (
+        <View style={styles.customerLoadingRow}>
+          <ActivityIndicator color={colors.accentPrimary} size="small" />
+          <Text style={styles.loadingText}>Searching…</Text>
         </View>
       ) : null}
     </View>
@@ -223,10 +224,9 @@ export function CartPanel({
               <ShoppingCart color="#fff" size={20} />
             </View>
             <View>
-              <Text style={styles.headerTitle}>Your cart</Text>
+              <Text style={styles.headerTitle}>Cart</Text>
               <Text style={styles.headerSub}>
-                {cart.length} line{cart.length === 1 ? '' : 's'} · {itemCount} unit
-                {itemCount === 1 ? '' : 's'}
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
               </Text>
             </View>
           </View>
@@ -238,7 +238,7 @@ export function CartPanel({
         </View>
         {cart.length > 0 ? (
           <View style={styles.headerTotal}>
-            <Text style={styles.headerTotalLabel}>Running total</Text>
+            <Text style={styles.headerTotalLabel}>Total</Text>
             <Text style={styles.headerTotalValue}>{formatCurrency(orderSummary.grandTotal)}</Text>
           </View>
         ) : null}
@@ -256,8 +256,8 @@ export function CartPanel({
             <View style={styles.emptyIcon}>
               <CartIcon color={colors.textMuted} size={32} strokeWidth={1.5} />
             </View>
-            <Text style={styles.emptyTitle}>Cart is empty</Text>
-            <Text style={styles.emptyText}>Scan IMEI/SKU or tap a product to add items</Text>
+            <Text style={styles.emptyTitle}>Empty cart</Text>
+            <Text style={styles.emptyText}>Add products to continue</Text>
           </View>
         }
         renderItem={({ item, index }) => (
@@ -286,34 +286,29 @@ export function CartPanel({
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
-              <Text style={styles.grandLabel}>Grand total</Text>
+              <Text style={styles.grandLabel}>Total</Text>
               <Text style={styles.grandValue}>{formatCurrency(orderSummary.grandTotal)}</Text>
             </View>
           </View>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.clearBtn} onPress={handleClear}>
-              <Text style={styles.clearBtnText}>Clear cart</Text>
-            </TouchableOpacity>
-            <View style={styles.orderActions}>
-              {!isWalkingCustomer && customer ? (
-                <TouchableOpacity
-                  style={[styles.payLaterBtn, loading && styles.actionDisabled]}
-                  onPress={onPayLater}
-                  disabled={loading || cart.length === 0}
-                >
-                  <Clock3 color="#d97706" size={17} />
-                  <Text style={styles.payLaterBtnText}>Pay Later</Text>
-                </TouchableOpacity>
-              ) : null}
-              <View style={styles.checkoutWrap}>
-                <Button
-                  title={`Checkout · ${formatCurrency(orderSummary.grandTotal)}`}
-                  disabled={cart.length === 0}
-                  loading={loading}
-                  onPress={onCheckout}
-                />
-              </View>
+          <View style={styles.orderActions}>
+            {!isWalkingCustomer && customer ? (
+              <TouchableOpacity
+                style={[styles.payLaterBtn, loading && styles.actionDisabled]}
+                onPress={onPayLater}
+                disabled={loading || cart.length === 0}
+              >
+                <Clock3 color="#d97706" size={17} />
+                <Text style={styles.payLaterBtnText}>Pay Later</Text>
+              </TouchableOpacity>
+            ) : null}
+            <View style={styles.checkoutWrap}>
+              <Button
+                title={`Checkout · ${formatCurrency(orderSummary.grandTotal)}`}
+                disabled={cart.length === 0}
+                loading={loading}
+                onPress={onCheckout}
+              />
             </View>
           </View>
         </View>
@@ -407,87 +402,157 @@ const styles = StyleSheet.create({
   listContent: { padding: spacing.sm, paddingBottom: spacing.md },
   listEmpty: { flexGrow: 1 },
   customerCard: {
-    backgroundColor: '#fff',
-    borderRadius: radius.lg,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.borderLight,
-    padding: 12,
-    marginBottom: 10,
+    borderColor: '#eef2f7',
+    padding: 14,
+    marginBottom: 12,
   },
   customerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  customerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  customerTitle: { color: colors.textPrimary, fontWeight: '700', fontSize: 14 },
-  customerActions: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  customerPick: {
-    flex: 1,
+  customerTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+  clearCustomerBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearCustomerText: {
+    color: colors.statusError,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  selectedAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eef2ff',
+  },
+  selectedAvatarText: {
+    color: colors.accentPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  selectedBody: { flex: 1, minWidth: 0 },
+  selectedNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  selectedName: {
+    flexShrink: 1,
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  selectedPhone: {
+    marginTop: 2,
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  selectedMeta: {
+    marginTop: 4,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  walkInCard: {
+    gap: 10,
+  },
+  walkInTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  walkInBadge: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  browseLink: {
+    color: colors.accentPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  phoneField: {
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 12,
-    backgroundColor: colors.bgPrimary,
-    borderRadius: radius.md,
+    paddingLeft: 14,
+    paddingRight: 6,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: '#e2e8f0',
   },
-  customerPickText: { color: colors.textPrimary, fontWeight: '600', fontSize: 13 },
-  addCustomerBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  phoneInput: {
+  phoneFieldInput: {
     flex: 1,
-    backgroundColor: colors.bgPrimary,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    height: 46,
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    paddingVertical: 0,
   },
-  phoneEnterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentPrimary,
+  phoneSearchBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.accentPrimary,
   },
-  customerStats: {
+  phoneSearchBtnOff: {
+    opacity: 0.35,
+  },
+  customerLoadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
-    flexWrap: 'wrap',
+    marginTop: 10,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
   },
   vipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     backgroundColor: '#fffbeb',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#fde68a',
   },
-  vipText: { color: '#d97706', fontSize: 10, fontWeight: '800' },
-  statText: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
+  vipText: { color: '#b45309', fontSize: 9, fontWeight: '800' },
   emptyWrap: { alignItems: 'center', paddingTop: 32, paddingHorizontal: spacing.lg },
   emptyIcon: {
     width: 72,
@@ -534,16 +599,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 2 },
   grandLabel: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   grandValue: { color: colors.accentPrimary, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
-  actions: { gap: 8 },
-  clearBtn: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  clearBtnText: { color: colors.statusError, fontWeight: '700', fontSize: 13 },
   orderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   payLaterBtn: {
     height: 46,

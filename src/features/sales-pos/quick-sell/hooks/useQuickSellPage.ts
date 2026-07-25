@@ -696,30 +696,60 @@ export function useQuickSellPage() {
 
   const handleRevertAssign = (order: QuickSellOrder) => {
     if (order.status !== 'assigned') return;
-    Alert.alert(
-      'Revert Assignment',
-      'Undo supplier assignment? Purchase, payment & advance will be reversed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Revert',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setActionBusyId(order.id);
-              const updated = await qs.revertQuickSellAssign(order.id);
-              setActionBusyId(null);
-              if (updated) {
-                refreshList();
-                Alert.alert('Reverted', 'Supplier assignment reverted');
-              } else {
-                Alert.alert('Failed', qs.error || 'Failed to revert');
-              }
-            })();
+    void (async () => {
+      setActionBusyId(order.id);
+      const preview = await qs.fetchRevertPreview(order.id);
+      setActionBusyId(null);
+      if (!preview) {
+        Alert.alert('Failed', qs.error || 'Failed to load revert details');
+        return;
+      }
+      if (!preview.canRevert) {
+        Alert.alert('Cannot revert', preview.blockReason || 'This assignment cannot be reverted.');
+        return;
+      }
+
+      const refundLines =
+        preview.refundByAccount.length > 0
+          ? preview.refundByAccount
+              .map((r) => `• ${r.accountName}: ${formatTaka(r.amount)}`)
+              .join('\n')
+          : '• No cash payments to refund';
+
+      const extraWarn = preview.hasExtraPayments
+        ? `\n\nWarning: Extra payment(s) of ${formatTaka(preview.extraPaidAmount)} after assign will also be refunded.`
+        : '';
+
+      const dueLine =
+        preview.dueAmount > 0
+          ? `\nRemaining due ${formatTaka(preview.dueAmount)} will be cleared with the purchase.`
+          : '';
+
+      Alert.alert(
+        'Revert Assignment',
+        `Bill ${formatTaka(preview.grandTotal)} · Paid ${formatTaka(preview.paidAmount)} · Due ${formatTaka(preview.dueAmount)}\n\nRefund to accounts (total ${formatTaka(preview.refundTotal)}):\n${refundLines}${dueLine}${extraWarn}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Revert',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                setActionBusyId(order.id);
+                const updated = await qs.revertQuickSellAssign(order.id);
+                setActionBusyId(null);
+                if (updated) {
+                  refreshList();
+                  Alert.alert('Reverted', 'Supplier assignment reverted');
+                } else {
+                  Alert.alert('Failed', qs.error || 'Failed to revert');
+                }
+              })();
+            },
           },
-        },
-      ],
-    );
+        ],
+      );
+    })();
   };
 
   const fillFullPayment = () => {

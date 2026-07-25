@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LayoutDashboard, ShoppingCart, Zap, LogOut, Store } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { PosCartNavProvider, usePosCartNav } from '@/contexts/PosCartNavContext';
 import { SubscriptionAccessGate } from '@/components/SubscriptionAccessGate';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 
@@ -18,7 +19,9 @@ const TAB_ITEMS = [
 export default function AdminLayout() {
   return (
     <SubscriptionAccessGate>
-      <AdminLayoutContent />
+      <PosCartNavProvider>
+        <AdminLayoutContent />
+      </PosCartNavProvider>
     </SubscriptionAccessGate>
   );
 }
@@ -28,6 +31,7 @@ function AdminLayoutContent() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, tenant, logout } = useAuth();
+  const { cartCount, setCartOpen } = usePosCartNav();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const navigate = (href: string) => {
@@ -35,6 +39,7 @@ function AdminLayoutContent() {
   };
 
   const isActiveTab = (href: string) => pathname.startsWith(href);
+  const onPosScreen = pathname.startsWith('/admin/sales-pos/pos');
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
@@ -95,22 +100,44 @@ function AdminLayoutContent() {
             const Icon = tab.icon;
             const active = isActiveTab(tab.href);
             const isPrimary = tab.label === 'POS';
+            const showAsCart = isPrimary && onPosScreen;
+            const label = showAsCart ? 'Cart' : tab.label;
+
             return (
               <TouchableOpacity
                 key={tab.href}
                 style={[styles.tab, isPrimary && styles.primaryTab]}
-                onPress={() => navigate(tab.href)}
+                onPress={() => {
+                  if (showAsCart) setCartOpen(true);
+                  else navigate(tab.href);
+                }}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
+                accessibilityLabel={showAsCart ? 'Open cart' : tab.label}
               >
                 {isPrimary ? (
-                  <LinearGradient
-                    colors={active ? ['#7c3aed', '#4f46e5'] : ['#6366f1', '#4338ca']}
-                    style={[styles.primaryIcon, active && styles.primaryIconActive]}
-                  >
-                    <Icon color="#ffffff" size={23} strokeWidth={2.4} />
-                  </LinearGradient>
+                  <View style={styles.primaryIconWrap}>
+                    <LinearGradient
+                      colors={
+                        showAsCart
+                          ? ['#059669', '#10b981']
+                          : active
+                            ? ['#7c3aed', '#4f46e5']
+                            : ['#6366f1', '#4338ca']
+                      }
+                      style={[styles.primaryIcon, active && styles.primaryIconActive]}
+                    >
+                      <Icon color="#ffffff" size={23} strokeWidth={2.4} />
+                    </LinearGradient>
+                    {showAsCart && cartCount > 0 ? (
+                      <View style={styles.cartBadge}>
+                        <Text style={styles.cartBadgeText}>
+                          {cartCount > 99 ? '99+' : cartCount}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 ) : active ? (
                   <LinearGradient
                     colors={['#eef2ff', '#e0e7ff']}
@@ -128,9 +155,10 @@ function AdminLayoutContent() {
                     styles.tabLabel,
                     active && styles.tabLabelActive,
                     isPrimary && styles.primaryLabel,
+                    showAsCart && styles.cartLabel,
                   ]}
                 >
-                  {tab.label}
+                  {label}
                 </Text>
                 {active && !isPrimary ? <View style={styles.activeDot} /> : null}
               </TouchableOpacity>
@@ -289,6 +317,9 @@ const styles = StyleSheet.create({
   primaryTab: {
     minHeight: 60,
   },
+  primaryIconWrap: {
+    position: 'relative',
+  },
   tabActivePill: {
     width: 48,
     height: 34,
@@ -325,6 +356,23 @@ const styles = StyleSheet.create({
   tabLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700' },
   tabLabelActive: { color: colors.accentPrimary, fontWeight: '800' },
   primaryLabel: { color: colors.accentPrimary, fontWeight: '800' },
+  cartLabel: { color: '#059669', fontWeight: '800' },
+  cartBadge: {
+    position: 'absolute',
+    top: -26,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    zIndex: 2,
+  },
+  cartBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900' },
   activeDot: {
     width: 4,
     height: 4,

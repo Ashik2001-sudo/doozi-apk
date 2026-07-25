@@ -1,8 +1,6 @@
 import React from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -11,6 +9,7 @@ import {
 } from 'react-native';
 import { Building2, Mail, MapPin, Phone, UserRound, X } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { colors } from '@/theme/tokens';
 import { styles } from '../styles';
 import type { UseWholesaleCreate } from '../hooks/useWholesaleCreate';
@@ -32,10 +31,7 @@ export function AddRetailerModal({ create }: { create: UseWholesaleCreate }) {
 
   return (
     <Modal visible={addRetailerOpen} animationType="slide" onRequestClose={close}>
-      <KeyboardAvoidingView
-        style={styles.modalRoot}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAware style={styles.modalRoot}>
         <View style={styles.modalHead}>
           <View style={styles.addRetailerHeading}>
             <View style={styles.addRetailerHeadingIcon}>
@@ -122,7 +118,7 @@ export function AddRetailerModal({ create }: { create: UseWholesaleCreate }) {
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAware>
     </Modal>
   );
 }

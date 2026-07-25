@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE_URL, authorizedFetch } from '@/lib/config';
 import { POSProduct } from '@/features/sales-pos/pos/types/pos.types';
 import { parseImageField } from '@/features/sales-pos/pos/utils/formatters';
@@ -23,13 +23,19 @@ function parsePosResponse(json: PosApiPayload | any[]) {
   };
 }
 
+/** Lean list row — drop bulky unused fields; serial picker fetches IMEIs on demand. */
 function normalizeProduct(raw: any): POSProduct {
   const variants = (raw.variants || []).map((variant: any) => {
     const embedded =
       variant.prices?.[0] ??
       (variant.price?.sellingPrice != null ? variant.price : null);
+    const serialRows = variant.serialNumbers;
+    const availableSerialCount = Array.isArray(serialRows) ? serialRows.length : 0;
     return {
-      ...variant,
+      id: variant.id,
+      productId: variant.productId ?? raw.id,
+      sku: variant.sku,
+      stockQuantity: Number(variant.stockQuantity ?? 0),
       images: parseImageField(variant.images),
       attributes: (variant.attributes || []).map((attr: any) => ({
         attributeName: attr.name || attr.attributeName || '',
@@ -40,16 +46,23 @@ function normalizeProduct(raw: any): POSProduct {
         discountType: embedded?.discountType,
         discountValue: embedded?.discountValue ? Number(embedded.discountValue) : 0,
       },
-      serialNumbers: variant.serialNumbers || [],
+      // Keep tiny arrays only (exact scan hits); otherwise count for stock filter.
+      serialNumbers: availableSerialCount > 0 && availableSerialCount <= 8 ? serialRows : [],
+      availableSerialCount,
     };
   });
 
   return {
-    ...raw,
+    id: raw.id,
+    name: raw.name,
     images: parseImageField(raw.images),
     hasSerialNumber: !!raw.hasSerialNumber,
+    sellerBrand: raw.sellerBrand ? { name: raw.sellerBrand.name } : undefined,
+    brand: raw.brand ? { name: raw.brand.name } : undefined,
+    status: raw.status || 'active',
+    productType: raw.productType === 'variable' ? 'variable' : 'single',
     variants,
-  };
+  } as POSProduct;
 }
 
 export function useProducts(
@@ -59,10 +72,12 @@ export function useProducts(
 ) {
   const [products, setProducts] = useState<POSProduct[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const { socket } = useRealtimeSocket();
+  const loadingMoreRef = useRef(false);
 
   const fetchProducts = useCallback(
     async (pageNum = 1, append = false) => {
@@ -71,8 +86,14 @@ export function useProducts(
         setError(null);
         return;
       }
-      setLoading(true);
-      if (!append) setError(null);
+      if (append) {
+        if (loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const q = searchTerm.trim();
         const params = new URLSearchParams({
@@ -127,7 +148,12 @@ export function useProducts(
         if (!append) setProducts([]);
         setError(e instanceof Error ? e.message : 'Failed to load products');
       } finally {
-        setLoading(false);
+        if (append) {
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        } else {
+          setLoading(false);
+        }
       }
     },
     [branchId, categoryId, searchTerm],
@@ -149,27 +175,27 @@ export function useProducts(
     };
   }, [socket, branchId, fetchProducts]);
 
-  const loadMore = () => {
-    if (!loading && hasMore) void fetchProducts(page + 1, true);
-  };
+  const loadMore = useCallback(() => {
+    if (!loading && !loadingMore && hasMore) void fetchProducts(page + 1, true);
+  }, [loading, loadingMore, hasMore, fetchProducts, page]);
 
   // Optimistic update: Update stock quantities instantly without refetching (same as seller-admin)
   const updateStockOptimistically = useCallback(
     (updates: Array<{ variantId: string; quantity: number }>) => {
       setProducts((prevProducts) =>
-        prevProducts.map((product) => ({
-          ...product,
-          variants: product.variants.map((variant) => {
+        prevProducts.map((product) => {
+          let changed = false;
+          const variants = product.variants.map((variant) => {
             const update = updates.find((u) => u.variantId === variant.id);
-            if (update) {
-              return {
-                ...variant,
-                stockQuantity: Math.max(0, variant.stockQuantity - update.quantity),
-              };
-            }
-            return variant;
-          }),
-        })),
+            if (!update) return variant;
+            changed = true;
+            return {
+              ...variant,
+              stockQuantity: Math.max(0, variant.stockQuantity - update.quantity),
+            };
+          });
+          return changed ? { ...product, variants } : product;
+        }),
       );
     },
     [],
@@ -178,6 +204,7 @@ export function useProducts(
   return {
     products,
     loading,
+    loadingMore,
     error,
     hasMore,
     loadMore,

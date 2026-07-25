@@ -65,20 +65,44 @@ export function getFinalSellingPrice(
 }
 
 export function variantHasStock(
-  variant: { stockQuantity?: number; serialNumbers?: unknown },
+  variant: { stockQuantity?: number; serialNumbers?: unknown; availableSerialCount?: number },
 ): boolean {
   if ((variant.stockQuantity ?? 0) > 0) return true;
+  if ((variant.availableSerialCount ?? 0) > 0) return true;
   const serials = variant.serialNumbers;
   return Array.isArray(serials) && serials.length > 0;
 }
 
-export function filterInStockProducts<T extends { variants?: Array<{ stockQuantity?: number; serialNumbers?: unknown }> }>(
-  products: T[],
-): T[] {
-  return products
-    .map((product) => ({
-      ...product,
-      variants: (product.variants || []).filter((variant) => variantHasStock(variant)),
-    }))
-    .filter((product) => (product.variants?.length ?? 0) > 0);
+/**
+ * Keep product/variant object identity when already fully in-stock so FlatList
+ * cells (and cached images) are not remounted on every pagination append.
+ */
+export function filterInStockProducts<
+  T extends {
+    variants?: Array<{ stockQuantity?: number; serialNumbers?: unknown; availableSerialCount?: number }>;
+  },
+>(products: T[]): T[] {
+  const out: T[] = [];
+  for (const product of products) {
+    const variants = product.variants || [];
+    if (variants.length === 0) continue;
+
+    let allInStock = true;
+    for (const variant of variants) {
+      if (!variantHasStock(variant)) {
+        allInStock = false;
+        break;
+      }
+    }
+    if (allInStock) {
+      out.push(product);
+      continue;
+    }
+
+    const kept = variants.filter((variant) => variantHasStock(variant));
+    if (kept.length > 0) {
+      out.push({ ...product, variants: kept });
+    }
+  }
+  return out;
 }

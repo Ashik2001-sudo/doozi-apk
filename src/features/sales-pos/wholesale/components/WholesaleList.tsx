@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,11 +15,11 @@ import { styles } from '../styles';
 import { money, StatusFilter, WholesaleItem, WholesaleOrder } from '../types';
 import type { UseWholesaleOrders } from '../hooks/useWholesaleOrders';
 import { OrderCard } from './OrderCard';
+import { OrderDetailModal } from './OrderDetailModal';
 
 type Props = {
   orders: UseWholesaleOrders;
   onCreate: () => void;
-  onOpenSale: (saleOrderId: string) => void;
   onSellOut: (order: WholesaleOrder, item: WholesaleItem) => void;
   onReturn: (order: WholesaleOrder, item: WholesaleItem) => void;
 };
@@ -30,7 +30,7 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'completed', label: 'Complete' },
 ];
 
-export function WholesaleList({ orders, onCreate, onOpenSale, onSellOut, onReturn }: Props) {
+export function WholesaleList({ orders, onCreate, onSellOut, onReturn }: Props) {
   const {
     branchList,
     branchId,
@@ -44,26 +44,30 @@ export function WholesaleList({ orders, onCreate, onOpenSale, onSellOut, onRetur
     loading,
     loadingMore,
     error,
-    expandedId,
-    toggleExpand,
     stats,
     refresh,
     loadMore,
   } = orders;
 
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedOrder = useMemo(
+    () => (selectedId ? list.find((o) => o.id === selectedId) ?? null : null),
+    [list, selectedId],
+  );
+
+  useEffect(() => {
+    if (selectedId && !list.some((o) => o.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [list, selectedId]);
+
   return (
+    <>
     <FlatList
       data={list}
       keyExtractor={(o) => o.id}
       renderItem={({ item }) => (
-        <OrderCard
-          order={item}
-          expanded={expandedId === item.id}
-          onToggle={() => toggleExpand(item.id)}
-          onOpenSale={onOpenSale}
-          onSellOut={onSellOut}
-          onReturn={onReturn}
-        />
+        <OrderCard order={item} onPress={() => setSelectedId(item.id)} />
       )}
       contentContainerStyle={styles.listContent}
       onEndReached={loadMore}
@@ -186,6 +190,13 @@ export function WholesaleList({ orders, onCreate, onOpenSale, onSellOut, onRetur
           {loading && list.length === 0 ? (
             <ActivityIndicator color={colors.accentPrimary} style={{ marginVertical: 36 }} />
           ) : null}
+
+          {list.length > 0 || (!loading && !error) ? (
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionHeadTitle}>Orders</Text>
+              <Text style={styles.sectionHeadCount}>{total}</Text>
+            </View>
+          ) : null}
         </>
       }
       ListEmptyComponent={
@@ -210,5 +221,19 @@ export function WholesaleList({ orders, onCreate, onOpenSale, onSellOut, onRetur
         ) : null
       }
     />
+
+    <OrderDetailModal
+      order={selectedOrder}
+      onClose={() => setSelectedId(null)}
+      onSellOut={(order, item) => {
+        setSelectedId(null);
+        onSellOut(order, item);
+      }}
+      onReturn={(order, item) => {
+        setSelectedId(null);
+        onReturn(order, item);
+      }}
+    />
+    </>
   );
 }

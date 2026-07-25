@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   ScrollView,
+  Platform,
+  type ListRenderItem,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,30 +32,21 @@ import {
   Store,
 } from 'lucide-react-native';
 import { SerialSelectModal } from '@/features/sales-pos/pos/components/SerialSelectModal';
+import { usePosCartNav } from '@/contexts/PosCartNavContext';
 import {
   alertAddResult,
   addProductLikeSellerAdmin,
   tryAddByEnter,
 } from '@/features/sales-pos/pos/utils/tryAddByEnter';
 
-function serialMatches(product: POSProduct, variant: POSProductVariant, q: string, exact: boolean) {
-  if (!product.hasSerialNumber) return false;
-  const rows = ((variant as any).serialNumbers ?? []) as Array<string | { serialNumber?: string }>;
-  return rows.some((row) => {
-    const serial = typeof row === 'string' ? row : row?.serialNumber;
-    const s = String(serial || '').trim().toLowerCase();
-    return exact ? s === q : s.includes(q);
-  });
-}
-
 export default function POSPage() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isWide = width > 700;
   const pos = usePOS();
+  const { cartOpen, setCartOpen, setCartCount } = usePosCartNav();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [payLaterOpen, setPayLaterOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
   const [serialPick, setSerialPick] = useState<{
@@ -61,47 +54,57 @@ export default function POSPage() {
     variant: POSProductVariant;
   } | null>(null);
 
-  const inStockProducts = useMemo(
+  useEffect(() => {
+    setCartCount(pos.cart.length);
+    return () => setCartCount(0);
+  }, [pos.cart.length, setCartCount]);
+
+  // API already filters by search — skip O(n × serials) client scan (was hanging UI).
+  const displayProducts = useMemo(
     () => filterInStockProducts(pos.products),
     [pos.products],
   );
 
-  const displayProducts = useMemo(() => {
-    const q = pos.searchTerm.trim().toLowerCase();
-    if (!q) return inStockProducts;
+  const handleAddProduct = useCallback(
+    (product: POSProduct) => {
+      const variant = product.variants?.[0];
+      if (!variant) {
+        Alert.alert('No variant', 'Product has no sellable variant');
+        return;
+      }
+      void (async () => {
+        const result = await addProductLikeSellerAdmin({
+          product,
+          variant,
+          cart: pos.cart,
+          branchId: pos.selectedBranchId,
+          addToCart: pos.addToCart,
+          onSelectSerial: (p, v) => setSerialPick({ product: p, variant: v }),
+        });
+        alertAddResult(result);
+      })();
+    },
+    [pos.cart, pos.selectedBranchId, pos.addToCart],
+  );
 
-    const exact = inStockProducts.filter((product) =>
-      (product.variants || []).some((variant) => serialMatches(product, variant, q, true)),
-    );
-    if (exact.length > 0) return exact;
+  const renderProduct: ListRenderItem<POSProduct> = useCallback(
+    ({ item }) => <ProductCard product={item} onPress={handleAddProduct} />,
+    [handleAddProduct],
+  );
 
-    return inStockProducts.filter((product) => {
-      if ((product.name || '').toLowerCase().includes(q)) return true;
-      return (product.variants || []).some((variant) => {
-        if ((variant.sku || '').toLowerCase().includes(q)) return true;
-        return serialMatches(product, variant, q, false);
-      });
-    });
-  }, [inStockProducts, pos.searchTerm]);
+  const keyExtractor = useCallback((item: POSProduct) => item.id, []);
 
-  const handleAddProduct = (product: POSProduct) => {
-    const variant = product.variants?.[0];
-    if (!variant) {
-      Alert.alert('No variant', 'Product has no sellable variant');
-      return;
-    }
-    void (async () => {
-      const result = await addProductLikeSellerAdmin({
-        product,
-        variant,
-        cart: pos.cart,
-        branchId: pos.selectedBranchId,
-        addToCart: pos.addToCart,
-        onSelectSerial: (p, v) => setSerialPick({ product: p, variant: v }),
-      });
-      alertAddResult(result);
-    })();
-  };
+  const listFooter = useMemo(
+    () =>
+      pos.productsLoadingMore ? (
+        <ActivityIndicator color={colors.accentPrimary} style={{ marginVertical: 16 }} />
+      ) : null,
+    [pos.productsLoadingMore],
+  );
+
+  const onEndReached = useCallback(() => {
+    if (!pos.searchTerm.trim()) pos.loadMore();
+  }, [pos.searchTerm, pos.loadMore]);
 
   const handleSearchSubmit = async (scannedValue?: string) => {
     const q = (scannedValue ?? pos.searchTerm).trim();
@@ -168,7 +171,6 @@ export default function POSPage() {
       onUpdateUnitPrice={pos.updateUnitPrice}
       onRemove={pos.removeFromCart}
       onRemoveSerial={pos.removeSerialFromCart}
-      onClearCart={pos.clearCart}
       onCustomerSelect={pos.setCustomer}
       onClearCustomer={pos.clearCustomer}
       onSetPhoneNumber={pos.setPhoneNumber}
@@ -247,27 +249,17 @@ export default function POSPage() {
             )}
           </LinearGradient>
         </TouchableOpacity>
-        {!isWide ? (
-          <TouchableOpacity style={styles.cartFab} onPress={() => setCartOpen(true)}>
-            <LinearGradient colors={['#0f172a', '#1e293b']} style={styles.cartFabInner}>
-              <ShoppingCart color="#fff" size={16} />
-            </LinearGradient>
-            {pos.cart.length > 0 ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {pos.cart.length > 99 ? '99+' : pos.cart.length}
-                </Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       {!isWide && pos.cart.length > 0 ? (
-        <View style={styles.quickTotal}>
-          <Text style={styles.quickTotalLabel}>Cart total</Text>
+        <TouchableOpacity
+          style={styles.quickTotal}
+          onPress={() => setCartOpen(true)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.quickTotalLabel}>Cart total · tap to open</Text>
           <Text style={styles.quickTotalValue}>{formatCurrency(pos.orderSummary.grandTotal)}</Text>
-        </View>
+        </TouchableOpacity>
       ) : null}
 
       <View style={styles.content}>
@@ -288,7 +280,7 @@ export default function POSPage() {
                 {pos.selectedBranchId
                   ? pos.searchTerm.trim()
                     ? 'No products found'
-                    : inStockProducts.length === 0 && pos.products.length > 0
+                    : pos.products.length > 0
                       ? 'Nothing in stock here'
                       : 'No products yet'
                   : 'Loading branch…'}
@@ -296,7 +288,7 @@ export default function POSPage() {
               <Text style={styles.emptyCart}>
                 {pos.searchTerm.trim()
                   ? 'Try exact IMEI/SKU and tap Add'
-                  : inStockProducts.length === 0 && pos.products.length > 0
+                  : pos.products.length > 0
                     ? 'These items have no available stock for this branch'
                     : 'Search by name, SKU or scan barcode'}
               </Text>
@@ -305,22 +297,20 @@ export default function POSPage() {
           {displayProducts.length > 0 ? (
             <FlatList
               data={displayProducts}
-              keyExtractor={(item) => item.id}
+              keyExtractor={keyExtractor}
               numColumns={2}
               columnWrapperStyle={styles.productRow}
               contentContainerStyle={styles.productList}
               showsVerticalScrollIndicator={false}
-              onEndReached={() => {
-                if (!pos.searchTerm.trim()) pos.loadMore();
-              }}
-              ListFooterComponent={
-                pos.productsLoading && displayProducts.length > 0 ? (
-                  <ActivityIndicator color={colors.accentPrimary} style={{ marginVertical: 16 }} />
-                ) : null
-              }
-              renderItem={({ item }) => (
-                <ProductCard product={item} onPress={handleAddProduct} />
-              )}
+              onEndReached={onEndReached}
+              onEndReachedThreshold={0.35}
+              initialNumToRender={6}
+              maxToRenderPerBatch={6}
+              windowSize={7}
+              updateCellsBatchingPeriod={50}
+              removeClippedSubviews={Platform.OS === 'android'}
+              ListFooterComponent={listFooter}
+              renderItem={renderProduct}
             />
           ) : null}
         </View>
@@ -496,43 +486,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartFab: {
-    borderRadius: 12,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  cartFabInner: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  badge: {
-    position: 'absolute',
-    top: -7,
-    right: -7,
-    zIndex: 10,
-    backgroundColor: '#ef4444',
-    minWidth: 21,
-    height: 21,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
-    elevation: 7,
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '900', lineHeight: 13 },
   quickTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -40,7 +40,7 @@ function SkeletonBlock({ style }: { style: object }) {
   return <Animated.View style={[styles.skeletonBlock, style, animatedStyle]} />;
 }
 
-export function ProductCard({ product, onPress }: ProductCardProps) {
+function ProductCardComponent({ product, onPress }: ProductCardProps) {
   const variant = product.variants?.[0];
   if (!variant) return null;
 
@@ -55,8 +55,12 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
   const stockStyle = stockTone(stock);
 
   return (
-    <TouchableOpacity style={styles.wrap} onPress={() => onPress(product)} activeOpacity={0.88}>
-      <View style={[styles.card, shadows.soft]}>
+    <TouchableOpacity
+      style={styles.wrap}
+      onPress={() => onPress(product)}
+      activeOpacity={0.88}
+    >
+      <View style={styles.card}>
         <View style={styles.imageBox}>
           <ProductImage src={rawImage} fill borderRadius={0} style={styles.image} />
 
@@ -99,6 +103,21 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
     </TouchableOpacity>
   );
 }
+
+export const ProductCard = React.memo(ProductCardComponent, (prev, next) => {
+  if (prev.product.id !== next.product.id) return false;
+  if (prev.onPress !== next.onPress) return false;
+  const a = prev.product.variants?.[0];
+  const b = next.product.variants?.[0];
+  return (
+    a?.id === b?.id &&
+    a?.stockQuantity === b?.stockQuantity &&
+    a?.price?.sellingPrice === b?.price?.sellingPrice &&
+    a?.price?.discountValue === b?.price?.discountValue &&
+    prev.product.name === next.product.name &&
+    (a?.images?.[0] || prev.product.images?.[0]) === (b?.images?.[0] || next.product.images?.[0])
+  );
+});
 
 export function ProductCardSkeleton() {
   return (

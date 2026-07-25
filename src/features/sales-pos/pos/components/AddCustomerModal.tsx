@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Phone, Mail, MapPin, X } from 'lucide-react-native';
 import { API_BASE_URL, authorizedFetch, getUserData } from '@/lib/config';
 import { Button } from '@/components/ui/button';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { POSCustomer } from '@/features/sales-pos/pos/types/pos.types';
 import { colors, radius, spacing } from '@/theme/tokens';
 
@@ -108,7 +109,7 @@ export function AddCustomerModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <KeyboardAware style={[styles.root, { paddingTop: insets.top }]}>
         <LinearGradient colors={['#6366f1', '#4f46e5']} style={styles.header}>
           <Text style={styles.headerTitle}>Add Customer</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -162,7 +163,7 @@ export function AddCustomerModal({
             <Button title="Create" loading={loading} onPress={() => void handleSubmit()} />
           </View>
         </View>
-      </View>
+      </KeyboardAware>
     </Modal>
   );
 }

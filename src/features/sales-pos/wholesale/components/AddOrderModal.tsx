@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
+import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { ProductImage } from '@/components/ui/product-image';
 import { colors } from '@/theme/tokens';
 import { styles } from '../styles';
@@ -93,7 +94,7 @@ export function AddOrderModal({ create }: { create: UseWholesaleCreate }) {
   return (
     <>
     <Modal visible={open} animationType="slide" onRequestClose={closeModal}>
-      <View style={styles.modalRoot}>
+      <KeyboardAware style={styles.modalRoot}>
         <View style={styles.modalHead}>
           <View style={{ flex: 1 }}>
             <Text style={styles.modalTitle}>
@@ -367,7 +368,6 @@ export function AddOrderModal({ create }: { create: UseWholesaleCreate }) {
                   <Plus color="#ffffff" size={21} strokeWidth={2.7} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.searchHint}>Search works by retailer name or phone number</Text>
 
               {selectedRetailer ? (
                 <View style={styles.selectedRetailerCard}>
@@ -607,7 +607,7 @@ export function AddOrderModal({ create }: { create: UseWholesaleCreate }) {
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAware>
     </Modal>
 
     <Modal
@@ -617,15 +617,22 @@ export function AddOrderModal({ create }: { create: UseWholesaleCreate }) {
       statusBarTranslucent
       onRequestClose={() => setCartOpen(false)}
     >
-      <Pressable style={styles.cartDrawerOverlay} onPress={() => setCartOpen(false)}>
-        <Pressable style={styles.cartDrawer} onPress={(event) => event.stopPropagation()}>
+      {/* Backdrop Pressable must NOT wrap the drawer — it steals vertical pan/scroll. */}
+      <View style={styles.cartDrawerOverlay}>
+        <Pressable
+          style={styles.cartDrawerBackdrop}
+          onPress={() => setCartOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close cart"
+        />
+        <View style={styles.cartDrawer}>
           <View style={styles.cartDrawerHandle} />
           <View style={styles.cartDrawerHeader}>
             <View style={styles.cartDrawerTitleRow}>
               <View style={styles.cartDrawerIcon}>
                 <ShoppingCart color={colors.accentPrimary} size={21} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.cartDrawerTitle}>Order cart</Text>
                 <Text style={styles.cartDrawerSub}>
                   {cart.length} item{cart.length === 1 ? '' : 's'} · edit quantity and price
@@ -641,6 +648,9 @@ export function AddOrderModal({ create }: { create: UseWholesaleCreate }) {
             style={styles.cartDrawerScroll}
             contentContainerStyle={styles.cartDrawerContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            nestedScrollEnabled
+            bounces
             showsVerticalScrollIndicator
           >
             {cart.length ? (
@@ -678,8 +688,8 @@ export function AddOrderModal({ create }: { create: UseWholesaleCreate }) {
               onPress={() => setCartOpen(false)}
             />
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
     </>
   );
