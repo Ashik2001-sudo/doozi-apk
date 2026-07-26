@@ -17,7 +17,7 @@ const normalizeApiBase = (url: string | undefined, fallback: string) => {
 
 export const config = {
   API_URL: normalizeApiBase(process.env.EXPO_PUBLIC_API_URL, 'http://10.0.2.2:4000'),
-  APP_NAME: process.env.EXPO_PUBLIC_APP_NAME || 'Seller Admin',
+  APP_NAME: process.env.EXPO_PUBLIC_APP_NAME || 'Doozi',
   APP_VERSION: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
   AUTH_TOKEN_KEY: 'authToken',
   USER_DATA_KEY: 'userData',

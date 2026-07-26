@@ -43,7 +43,7 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
   const modal = useCompleteOrderModal(props);
   const [accountPickerRowId, setAccountPickerRowId] = useState<string | null>(null);
 
-  if (!props.visible) return null;
+  if (!props.visible && !modal.showInvoiceModal) return null;
 
   const statusStyle = PAYMENT_STATUS_STYLES[modal.paymentStatus] ?? PAYMENT_STATUS_STYLES.due;
   const activeTc = modal.tcItems.filter((tc) => tc.status === 'active');
@@ -59,7 +59,11 @@ export function CompleteOrderModal(props: CompleteOrderModalProps) {
 
   return (
     <>
-      <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose}>
+      <Modal
+        visible={props.visible && !modal.showInvoiceModal}
+        animationType="slide"
+        onRequestClose={props.onClose}
+      >
         <KeyboardAware style={[styles.root, { paddingTop: insets.top }]}>
           <LinearGradient colors={['#6366f1', '#4f46e5']} style={styles.header}>
             <View style={styles.headerRow}>

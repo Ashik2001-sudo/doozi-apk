@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Seller Admin",
+    "name": "Doozi",
     "slug": "seller-admin-mobile",
     "owner": "ashik2001",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
-    "scheme": "selleradmin",
+    "scheme": "doozi",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -46,7 +46,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Seller Admin to scan product barcodes.",
+          "cameraPermission": "Allow Doozi to scan product barcodes.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }

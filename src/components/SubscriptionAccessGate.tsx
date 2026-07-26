@@ -180,7 +180,7 @@ export function SubscriptionAccessGate({ children }: { children: React.ReactNode
             strokeWidth={2}
           />
         </View>
-        <Text style={styles.eyebrow}>SELLER ADMIN</Text>
+        <Text style={styles.eyebrow}>{config.APP_NAME.toUpperCase()}</Text>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
 

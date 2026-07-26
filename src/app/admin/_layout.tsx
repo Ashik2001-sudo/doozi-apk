@@ -8,6 +8,7 @@ import { LayoutDashboard, ShoppingCart, Zap, LogOut, Store } from 'lucide-react-
 import { useAuth } from '@/contexts/AuthContext';
 import { PosCartNavProvider, usePosCartNav } from '@/contexts/PosCartNavContext';
 import { SubscriptionAccessGate } from '@/components/SubscriptionAccessGate';
+import { config } from '@/lib/config';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 
 const TAB_ITEMS = [
@@ -59,9 +60,9 @@ function AdminLayoutContent() {
           <Store color="#ffffff" size={20} strokeWidth={2.2} />
         </View>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerEyebrow}>SELLER ADMIN</Text>
+          <Text style={styles.headerEyebrow}>{config.APP_NAME.toUpperCase()}</Text>
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {tenant?.company || 'Seller Admin'}
+            {tenant?.company || config.APP_NAME}
           </Text>
           <Text style={styles.headerSub} numberOfLines={1}>
             {user?.name || user?.email}

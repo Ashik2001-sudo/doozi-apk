@@ -1,5 +1,6 @@
 import { escapeHtml } from './report-print';
 import { getMediaUrl } from '@/lib/config';
+import { buildCode128SvgDataUrl } from '@/lib/code128-svg';
 import {
   fetchTenantInvoiceBranding,
   getTenantBrandingFromStorage,
@@ -9,8 +10,28 @@ import {
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Alert, Platform } from 'react-native';
-import bwipjs from 'bwip-js';
-import QRCode from 'qrcode';
+
+const isNativeMobile = Platform.OS === 'android' || Platform.OS === 'ios';
+
+/** Hermes-safe: never spread large typed arrays into String.fromCharCode. */
+function uint8ToBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const triplet = (a << 16) | (b << 8) | c;
+    out += alphabet[(triplet >> 18) & 63];
+    out += alphabet[(triplet >> 12) & 63];
+    out += i + 1 < bytes.length ? alphabet[(triplet >> 6) & 63] : '=';
+    out += i + 2 < bytes.length ? alphabet[triplet & 63] : '=';
+  }
+  return out;
+}
 
 export interface InvoiceItemPrint {
   productName: string;
@@ -101,65 +122,79 @@ async function attachInvoiceCodeImages(invoice: InvoicePrintData): Promise<Invoi
 
   if (!barcodeDataUrl && code) {
     try {
-      const png = await new Promise<Uint8Array>((resolve, reject) => {
-        // bwip-js ships toBuffer at runtime; @types/bwip-js often omits it.
-        (bwipjs as unknown as {
-          toBuffer: (
-            opts: Record<string, unknown>,
-            cb: (err: string | Error | undefined, buf?: Uint8Array) => void,
-          ) => void;
-        }).toBuffer(
-          {
-            bcid: 'code128',
-            text: code,
-            scale: 3,
-            height: 14,
-            includetext: false,
-            paddingwidth: 0,
-            paddingheight: 0,
-          },
-          (err, buf) => {
-            if (err || !buf) reject(err instanceof Error ? err : new Error(String(err || 'barcode failed')));
-            else resolve(buf);
-          },
-        );
-      });
-      const base64 = (() => {
-        if (typeof Buffer !== 'undefined') {
-          return Buffer.from(png).toString('base64');
+      if (isNativeMobile) {
+        // Never import bwip-js on Hermes Android — hard crash when invoice opens after sell.
+        barcodeDataUrl = buildCode128SvgDataUrl(code);
+      } else {
+        // Web: prefer bwip-js PNG; fall back to SVG / pure JS encoder.
+        try {
+          const bwipjs = (await import('bwip-js')).default;
+          const png = await new Promise<Uint8Array>((resolve, reject) => {
+            (bwipjs as unknown as {
+              toBuffer: (
+                opts: Record<string, unknown>,
+                cb: (err: string | Error | undefined, buf?: Uint8Array) => void,
+              ) => void;
+            }).toBuffer(
+              {
+                bcid: 'code128',
+                text: code,
+                scale: 3,
+                height: 14,
+                includetext: false,
+                paddingwidth: 0,
+                paddingheight: 0,
+              },
+              (err, buf) => {
+                if (err || !buf) {
+                  reject(err instanceof Error ? err : new Error(String(err || 'barcode failed')));
+                } else resolve(buf);
+              },
+            );
+          });
+          barcodeDataUrl = `data:image/png;base64,${uint8ToBase64(png)}`;
+        } catch {
+          try {
+            const bwipjs = (await import('bwip-js')).default;
+            const svg = bwipjs.toSVG({
+              bcid: 'code128',
+              text: code,
+              scale: 2,
+              height: 12,
+              includetext: false,
+            });
+            barcodeDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+          } catch {
+            barcodeDataUrl = buildCode128SvgDataUrl(code);
+          }
         }
-        let binary = '';
-        const chunk = 0x8000;
-        for (let i = 0; i < png.length; i += chunk) {
-          binary += String.fromCharCode(...png.subarray(i, i + chunk));
-        }
-        return btoa(binary);
-      })();
-      barcodeDataUrl = `data:image/png;base64,${base64}`;
-    } catch {
-      try {
-        const svg = bwipjs.toSVG({
-          bcid: 'code128',
-          text: code,
-          scale: 2,
-          height: 12,
-          includetext: false,
-        });
-        barcodeDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-      } catch {
-        barcodeDataUrl = null;
       }
+    } catch {
+      barcodeDataUrl = null;
     }
   }
 
   if (!qrDataUrl && storeQrUrl) {
     try {
-      qrDataUrl = await QRCode.toDataURL(storeQrUrl, {
-        width: 192,
-        margin: 1,
-        color: { dark: '#111827', light: '#ffffff' },
-        errorCorrectionLevel: 'M',
-      });
+      const QRCode = (await import('qrcode')).default;
+      if (isNativeMobile) {
+        // toDataURL needs canvas (missing on RN). SVG string is Hermes-safe.
+        const svg = await QRCode.toString(storeQrUrl, {
+          type: 'svg',
+          width: 192,
+          margin: 1,
+          color: { dark: '#111827', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+        qrDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      } else {
+        qrDataUrl = await QRCode.toDataURL(storeQrUrl, {
+          width: 192,
+          margin: 1,
+          color: { dark: '#111827', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+      }
     } catch {
       qrDataUrl = null;
     }
@@ -811,10 +846,15 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(invoice.invoiceNo || 'Invoice')}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  ${
+    isNativeMobile
+      ? ''
+      : `<link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">`
+  }
   <style>
     @page {
       size: A4;
@@ -823,7 +863,11 @@ export function buildInvoicePrintDocumentHtml(invoice: InvoicePrintData): string
     * { box-sizing: border-box; }
     /* Screen: same 16px body inset as supplier/customer/retailer ledger print HTML */
     body {
-      font-family: 'Inter', 'Noto Sans Bengali', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: ${
+        isNativeMobile
+          ? "system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', sans-serif"
+          : "'Inter', 'Noto Sans Bengali', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+      };
       font-size: 14px;
       line-height: 1.45;
       margin: 0;
@@ -1773,15 +1817,20 @@ function invoicePdfFilename(invoice: InvoicePrintData): string {
 
 /** Build final HTML with optional API branding (same layout as seller-admin). */
 export async function buildInvoiceHtmlAsync(invoice: unknown): Promise<string> {
-  const branding = await fetchTenantInvoiceBranding();
+  const branding = await fetchTenantInvoiceBranding().catch(() => null);
   const base =
     typeof invoice === 'object' && invoice !== null
       ? (invoice as TenantInvoiceBranding)
       : ({} as TenantInvoiceBranding);
-  const data = await attachInvoiceCodeImages(
-    invoicePayloadToPrintData(mergeInvoiceWithBranding(base, branding)),
-  );
-  return buildInvoicePrintDocumentHtml(data);
+  const printData = invoicePayloadToPrintData(mergeInvoiceWithBranding(base, branding));
+  let withCodes = printData;
+  try {
+    withCodes = await attachInvoiceCodeImages(printData);
+  } catch {
+    // Preview/print must still open even if barcode/QR generation fails.
+    withCodes = printData;
+  }
+  return buildInvoicePrintDocumentHtml(withCodes);
 }
 
 /**
@@ -1895,7 +1944,7 @@ export function buildInvoiceText(order: Record<string, unknown>): string {
   const data = invoicePayloadToPrintData(order);
   const lines = [
     '================================',
-    String(data.companyName || 'SELLER ADMIN').toUpperCase(),
+    String(data.companyName || 'DOOZI').toUpperCase(),
     '================================',
     `Invoice: ${data.invoiceNo}`,
     `Date: ${data.date}`,

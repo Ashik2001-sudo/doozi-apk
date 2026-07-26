@@ -94,17 +94,50 @@ export default function POSPage() {
 
   const keyExtractor = useCallback((item: POSProduct) => item.id, []);
 
-  const listFooter = useMemo(
-    () =>
-      pos.productsLoadingMore ? (
-        <ActivityIndicator color={colors.accentPrimary} style={{ marginVertical: 16 }} />
-      ) : null,
-    [pos.productsLoadingMore],
-  );
+  const listFooter = useMemo(() => {
+    if (pos.productsLoadingMore) {
+      return (
+        <View style={styles.loadMoreFooter}>
+          <ActivityIndicator color={colors.accentPrimary} />
+          <Text style={styles.loadMoreText}>Loading more…</Text>
+        </View>
+      );
+    }
+    if (pos.hasMore && displayProducts.length > 0) {
+      return (
+        <View style={styles.loadMoreFooter}>
+          <Text style={styles.loadMoreHint}>Scroll for more</Text>
+        </View>
+      );
+    }
+    return <View style={{ height: 12 }} />;
+  }, [pos.productsLoadingMore, pos.hasMore, displayProducts.length]);
 
   const onEndReached = useCallback(() => {
-    if (!pos.searchTerm.trim()) pos.loadMore();
-  }, [pos.searchTerm, pos.loadMore]);
+    // Same as seller-admin: keep paging on scroll (browse + search).
+    if (pos.hasMore) pos.loadMore();
+  }, [pos.hasMore, pos.loadMore]);
+
+  // If first pages are mostly out of stock, FlatList may not fill the screen —
+  // keep fetching next pages until we have in-stock rows or no more pages.
+  useEffect(() => {
+    if (
+      !pos.productsLoading &&
+      !pos.productsLoadingMore &&
+      pos.hasMore &&
+      pos.selectedBranchId &&
+      displayProducts.length < 8
+    ) {
+      pos.loadMore();
+    }
+  }, [
+    displayProducts.length,
+    pos.productsLoading,
+    pos.productsLoadingMore,
+    pos.hasMore,
+    pos.selectedBranchId,
+    pos.loadMore,
+  ]);
 
   const handleSearchSubmit = async (scannedValue?: string) => {
     const q = (scannedValue ?? pos.searchTerm).trim();
@@ -275,23 +308,33 @@ export default function POSPage() {
           ) : null}
           {!pos.productsLoading && !pos.productsError && displayProducts.length === 0 ? (
             <View style={styles.emptyProducts}>
-              <PackagePlaceholder />
-              <Text style={styles.emptyCartTitle}>
-                {pos.selectedBranchId
-                  ? pos.searchTerm.trim()
-                    ? 'No products found'
-                    : pos.products.length > 0
-                      ? 'Nothing in stock here'
-                      : 'No products yet'
-                  : 'Loading branch…'}
-              </Text>
-              <Text style={styles.emptyCart}>
-                {pos.searchTerm.trim()
-                  ? 'Try exact IMEI/SKU and tap Add'
-                  : pos.products.length > 0
-                    ? 'These items have no available stock for this branch'
-                    : 'Search by name, SKU or scan barcode'}
-              </Text>
+              {pos.productsLoadingMore || pos.hasMore ? (
+                <>
+                  <ActivityIndicator color={colors.accentPrimary} />
+                  <Text style={styles.emptyCartTitle}>Finding in-stock products…</Text>
+                  <Text style={styles.emptyCart}>Loading next page</Text>
+                </>
+              ) : (
+                <>
+                  <PackagePlaceholder />
+                  <Text style={styles.emptyCartTitle}>
+                    {pos.selectedBranchId
+                      ? pos.searchTerm.trim()
+                        ? 'No products found'
+                        : pos.products.length > 0
+                          ? 'Nothing in stock here'
+                          : 'No products yet'
+                      : 'Loading branch…'}
+                  </Text>
+                  <Text style={styles.emptyCart}>
+                    {pos.searchTerm.trim()
+                      ? 'Try exact IMEI/SKU and tap Add'
+                      : pos.products.length > 0
+                        ? 'These items have no available stock for this branch'
+                        : 'Search by name, SKU or scan barcode'}
+                  </Text>
+                </>
+              )}
             </View>
           ) : null}
           {displayProducts.length > 0 ? (
@@ -528,5 +571,13 @@ const styles = StyleSheet.create({
   emptyCartWrap: { alignItems: 'center', paddingTop: 48, paddingHorizontal: spacing.lg },
   emptyCartTitle: { color: colors.textPrimary, fontWeight: '700', fontSize: 16, marginTop: spacing.sm },
   emptyCart: { color: colors.textMuted, textAlign: 'center', marginTop: 6, fontSize: 13, lineHeight: 20 },
+  loadMoreFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  loadMoreText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  loadMoreHint: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
   mobileCart: { flex: 1, backgroundColor: colors.bgPrimary },
 });

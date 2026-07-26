@@ -4,6 +4,9 @@ import { POSProduct } from '@/features/sales-pos/pos/types/pos.types';
 import { parseImageField } from '@/features/sales-pos/pos/utils/formatters';
 import { useRealtimeSocket } from '@/contexts/RealtimeSocketContext';
 
+/** Same page size as seller-admin POS — first chunk, then scroll loads more. */
+const POS_PAGE_SIZE = 20;
+
 type PosApiPayload = {
   products?: any[];
   data?: { products?: any[]; pagination?: { pages?: number; page?: number } };
@@ -74,42 +77,81 @@ export function useProducts(
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const { socket } = useRealtimeSocket();
-  const loadingMoreRef = useRef(false);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastLoadedPageRef = useRef(0);
+  const loadingMoreInFlightRef = useRef(false);
+  const hasMoreRef = useRef(false);
+  const searchTermRef = useRef(searchTerm);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  useEffect(() => {
+    searchTermRef.current = searchTerm;
+  }, [searchTerm]);
 
   const fetchProducts = useCallback(
-    async (pageNum = 1, append = false) => {
+    async (opts?: { append?: boolean; silent?: boolean }) => {
       if (!branchId) {
         setProducts([]);
+        setHasMore(false);
+        hasMoreRef.current = false;
+        lastLoadedPageRef.current = 0;
         setError(null);
         return;
       }
-      if (append) {
-        if (loadingMoreRef.current) return;
-        loadingMoreRef.current = true;
-        setLoadingMore(true);
+
+      const append = opts?.append === true;
+      const silent = opts?.silent === true;
+      const nextPage = append ? lastLoadedPageRef.current + 1 : 1;
+
+      if (!append) {
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = new AbortController();
+        if (!silent) {
+          setLoading(true);
+          setError(null);
+        }
+        lastLoadedPageRef.current = 0;
+        setHasMore(false);
+        hasMoreRef.current = false;
       } else {
-        setLoading(true);
-        setError(null);
+        if (!hasMoreRef.current || loadingMoreInFlightRef.current) return;
+        if (!abortControllerRef.current) {
+          abortControllerRef.current = new AbortController();
+        }
+        loadingMoreInFlightRef.current = true;
+        setLoadingMore(true);
       }
+
+      const signal = abortControllerRef.current.signal;
+      let clearLoadingOnFinish = true;
+
       try {
-        const q = searchTerm.trim();
+        const q = searchTermRef.current.trim();
         const params = new URLSearchParams({
           branchId,
-          page: String(pageNum),
-          limit: '20',
+          page: String(nextPage),
+          limit: String(POS_PAGE_SIZE),
         });
         if (categoryId && !q) params.set('categoryId', categoryId);
         if (q) params.set('search', q);
 
-        const regularFetch = authorizedFetch(`${API_BASE_URL}/products/pos?${params}`);
+        const regularFetch = authorizedFetch(`${API_BASE_URL}/products/pos?${params}`, {
+          signal,
+        });
 
+        // Serial-first lookup only on first page (same as seller-admin).
         let serialFetch: Promise<Response> | null = null;
         if (q && !append) {
           const sp = new URLSearchParams({ serial: q, branchId });
-          serialFetch = authorizedFetch(`${API_BASE_URL}/products/pos/by-serial?${sp}`);
+          serialFetch = authorizedFetch(`${API_BASE_URL}/products/pos/by-serial?${sp}`, {
+            signal,
+          });
         }
 
         const [regularRes, serialRes] = await Promise.all([
@@ -124,6 +166,8 @@ export function useProducts(
 
         const regularJson = await regularRes.json();
         const { list: regularList, pages, page: currentPage } = parsePosResponse(regularJson);
+        const totalPages = Math.max(0, pages);
+        const resolvedPage = currentPage || nextPage;
 
         let serialList: any[] = [];
         if (serialRes?.ok) {
@@ -141,43 +185,80 @@ export function useProducts(
         }
 
         const normalized = merged.map(normalizeProduct);
-        setProducts((prev) => (append ? [...prev, ...normalized] : normalized));
-        setHasMore(pages > 0 ? currentPage < pages : normalized.length >= 20);
-        setPage(pageNum);
-      } catch (e) {
+        lastLoadedPageRef.current = resolvedPage;
+        const more =
+          totalPages > 0
+            ? resolvedPage < totalPages
+            : normalized.length >= POS_PAGE_SIZE;
+        setHasMore(more);
+        hasMoreRef.current = more;
+
+        if (append) {
+          setProducts((prev) => {
+            const ids = new Set(prev.map((p) => p.id));
+            const additions = normalized.filter((p) => !ids.has(p.id));
+            return additions.length ? [...prev, ...additions] : prev;
+          });
+        } else {
+          setProducts(normalized);
+        }
+      } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          clearLoadingOnFinish = false;
+          return;
+        }
         if (!append) setProducts([]);
-        setError(e instanceof Error ? e.message : 'Failed to load products');
+        if (!silent) setError(e instanceof Error ? e.message : 'Failed to load products');
       } finally {
         if (append) {
-          loadingMoreRef.current = false;
+          loadingMoreInFlightRef.current = false;
           setLoadingMore(false);
-        } else {
+        } else if (!silent && clearLoadingOnFinish) {
           setLoading(false);
         }
       }
     },
-    [branchId, categoryId, searchTerm],
+    [branchId, categoryId],
   );
 
+  // Debounced first page when branch / category / search changes (seller-admin parity).
   useEffect(() => {
-    const t = setTimeout(() => void fetchProducts(1, false), 300);
-    return () => clearTimeout(t);
-  }, [fetchProducts]);
+    if (!branchId) {
+      abortControllerRef.current?.abort();
+      setProducts([]);
+      setLoading(false);
+      setLoadingMore(false);
+      setHasMore(false);
+      hasMoreRef.current = false;
+      lastLoadedPageRef.current = 0;
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    const t = setTimeout(() => void fetchProducts({ append: false }), 300);
+    return () => {
+      clearTimeout(t);
+      abortControllerRef.current?.abort();
+    };
+  }, [branchId, categoryId, searchTerm, fetchProducts]);
 
   useEffect(() => {
     if (!socket || !branchId) return;
-    const handler = () => void fetchProducts(1, false);
+    const handler = () => void fetchProducts({ append: false, silent: true });
     socket.on('sale:created', handler);
     socket.on('sale:updated', handler);
+    socket.on('sale:deleted', handler);
     return () => {
       socket.off('sale:created', handler);
       socket.off('sale:updated', handler);
+      socket.off('sale:deleted', handler);
     };
   }, [socket, branchId, fetchProducts]);
 
   const loadMore = useCallback(() => {
-    if (!loading && !loadingMore && hasMore) void fetchProducts(page + 1, true);
-  }, [loading, loadingMore, hasMore, fetchProducts, page]);
+    if (!branchId || !hasMore || loading || loadingMore || loadingMoreInFlightRef.current) return;
+    void fetchProducts({ append: true, silent: true });
+  }, [branchId, hasMore, loading, loadingMore, fetchProducts]);
 
   // Optimistic update: Update stock quantities instantly without refetching (same as seller-admin)
   const updateStockOptimistically = useCallback(
@@ -208,7 +289,7 @@ export function useProducts(
     error,
     hasMore,
     loadMore,
-    refetch: () => fetchProducts(1, false),
+    refetch: () => fetchProducts({ append: false }),
     updateStockOptimistically,
   };
 }

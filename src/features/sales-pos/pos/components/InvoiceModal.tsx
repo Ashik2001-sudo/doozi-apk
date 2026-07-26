@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Modal,
   StyleSheet,
   Text,
@@ -124,16 +125,20 @@ export function InvoiceModal({ visible, invoiceData, onClose }: InvoiceModalProp
       return;
     }
     let cancelled = false;
-    void (async () => {
-      try {
-        const html = await buildInvoiceHtmlAsync(mergedInvoiceData);
-        if (!cancelled) setPreviewHtml(html);
-      } catch {
-        if (!cancelled) setPreviewHtml('');
-      }
-    })();
+    // Let the invoice modal paint first — heavy HTML on the same tick OOMs low-RAM Androids.
+    const task = InteractionManager.runAfterInteractions(() => {
+      void (async () => {
+        try {
+          const html = await buildInvoiceHtmlAsync(mergedInvoiceData);
+          if (!cancelled) setPreviewHtml(html);
+        } catch {
+          if (!cancelled) setPreviewHtml('');
+        }
+      })();
+    });
     return () => {
       cancelled = true;
+      task.cancel();
     };
   }, [visible, mergedInvoiceData]);
 

@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { KeyboardAware } from '@/components/ui/keyboard-aware';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
+import { config } from '@/lib/config';
 import { Eye, EyeOff, Sparkles } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -89,7 +90,7 @@ export default function LoginPage() {
                 <Sparkles color="#fff" size={28} />
               </LinearGradient>
             </View>
-            <Text style={styles.appName}>Seller Admin</Text>
+            <Text style={styles.appName}>{config.APP_NAME}</Text>
             <Text style={styles.tagline}>Your business, anywhere</Text>
           </Animated.View>
 
@@ -136,7 +137,7 @@ export default function LoginPage() {
           </Animated.View>
 
           <Animated.Text entering={FadeInUp.delay(320).duration(500)} style={styles.footer}>
-            Same account as seller-admin web
+            Same account as Doozi web
           </Animated.Text>
         </ScrollView>
       </KeyboardAware>

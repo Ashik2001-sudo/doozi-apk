@@ -23,6 +23,12 @@ export function InvoiceHtmlPreview({ html }: Props) {
       source={{ html }}
       style={styles.webview}
       startInLoadingState
+      javaScriptEnabled={false}
+      domStorageEnabled={false}
+      mixedContentMode="compatibility"
+      androidLayerType="hardware"
+      setSupportMultipleWindows={false}
+      scalesPageToFit
       renderLoading={() => (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accentPrimary} size="large" />
