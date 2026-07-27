@@ -10,7 +10,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.doozi.selleradmin"
+      "bundleIdentifier": "com.doozi.selleradmin",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Doozi needs your location to verify attendance check-in within the allowed zone."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +26,9 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -49,6 +54,12 @@
           "cameraPermission": "Allow Doozi to scan product barcodes.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Doozi to use your location for attendance check-in."
         }
       ],
       "expo-sharing",

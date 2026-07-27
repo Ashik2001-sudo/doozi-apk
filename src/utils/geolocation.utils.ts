@@ -1,10 +1,97 @@
-/** Attendance check-in geolocation — works on Expo web; native uses same navigator when available. */
+/** Attendance check-in geolocation — uses expo-location on native APK, navigator on web. */
+
+import { Platform } from 'react-native';
+import * as Location from 'expo-location';
 
 export type CheckInCoords = { latitude: number; longitude: number; accuracy: number };
 
-export async function getCheckInPosition(maxWaitMs = 12000): Promise<{ coords: CheckInCoords }> {
+type GeoErr = { code: number; message: string };
+
+function toCoords(coords: {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+}): CheckInCoords {
+  return {
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    accuracy: coords.accuracy ?? 999,
+  };
+}
+
+async function getNativeCheckInPosition(maxWaitMs: number): Promise<{ coords: CheckInCoords }> {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== Location.PermissionStatus.GRANTED) {
+    throw { code: 1, message: 'Location permission denied' } satisfies GeoErr;
+  }
+
+  const servicesEnabled = await Location.hasServicesEnabledAsync();
+  if (!servicesEnabled) {
+    throw new Error('GPS is turned off. Please enable location services and try again.');
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let best: CheckInCoords | null = null;
+    let subscription: Location.LocationSubscription | null = null;
+
+    const cleanup = () => {
+      subscription?.remove();
+      clearTimeout(timer);
+    };
+
+    const finish = (coords: CheckInCoords) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ coords });
+    };
+
+    const fail = (err: GeoErr) => {
+      if (settled) return;
+      if (best) {
+        finish(best);
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+
+    const timer = setTimeout(() => {
+      if (best) finish(best);
+      else fail({ code: 3, message: 'Location timeout' });
+    }, maxWaitMs);
+
+    void Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 500,
+        distanceInterval: 0,
+      },
+      (pos) => {
+        const coords = toCoords(pos.coords);
+        if (!best || coords.accuracy < best.accuracy) best = coords;
+        if (coords.accuracy <= 80) finish(coords);
+      },
+    )
+      .then((sub) => {
+        if (settled) {
+          sub.remove();
+          return;
+        }
+        subscription = sub;
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Location unavailable';
+        fail({ code: 2, message });
+      });
+  });
+}
+
+function getWebCheckInPosition(maxWaitMs: number): Promise<{ coords: CheckInCoords }> {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    throw new Error('Location is not available on this device. Open the app in a browser or enable GPS.');
+    throw new Error('Location is not available on this device.');
   }
 
   return new Promise((resolve, reject) => {
@@ -21,16 +108,10 @@ export async function getCheckInPosition(maxWaitMs = 12000): Promise<{ coords: C
       if (settled) return;
       settled = true;
       cleanup();
-      resolve({
-        coords: {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy ?? 999,
-        },
-      });
+      resolve({ coords: toCoords(pos.coords) });
     };
 
-    const fail = (err: GeolocationPositionError | { code: number; message: string }) => {
+    const fail = (err: GeolocationPositionError | GeoErr) => {
       if (settled) return;
       if (best) {
         finish(best);
@@ -57,9 +138,18 @@ export async function getCheckInPosition(maxWaitMs = 12000): Promise<{ coords: C
   });
 }
 
+export async function getCheckInPosition(maxWaitMs = 12000): Promise<{ coords: CheckInCoords }> {
+  if (Platform.OS === 'web') {
+    return getWebCheckInPosition(maxWaitMs);
+  }
+  return getNativeCheckInPosition(maxWaitMs);
+}
+
 export function geolocationErrorMessage(err: unknown): string {
   const code = typeof err === 'object' && err && 'code' in err ? Number((err as { code: number }).code) : 0;
-  if (code === 1) return 'Location access is required for check-in. Please enable it.';
+  if (code === 1) {
+    return 'Location access is required for check-in. Please allow location permission in app settings.';
+  }
   if (code === 3) return 'Could not get your location in time. Please try again outdoors.';
   if (err instanceof Error) return err.message;
   return 'Could not detect your location. Please try again.';
